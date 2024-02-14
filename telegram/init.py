@@ -286,6 +286,8 @@ class UserBot:
         logging.info("Started reposting")
 
         for ch_id in self.chats_ids:
+            if not (ch_id in self.chats_ids and ch_id in self.albums_ids and ch_id in self.posted):
+                continue
             logging.info(f"Uploading {ch_id}...")
             messages: list[Message] = [
                 mes
@@ -296,14 +298,17 @@ class UserBot:
             if not messages:
                 logging.info(f"No photos to upload from {ch_id}")
             else:
-                for ind, mes in enumerate(messages):
-                    if mes.photo:
-                        caption = await self.__get_caption(ch_id, ind, messages)
-                        byted_photo = await self.app.download_media(mes, in_memory=True)
-                        self.vk_album.add_photo(album_id, byted_photo, caption)
+                try:
+                    for ind, mes in enumerate(messages):
+                        if mes.photo:
+                            caption = await self.__get_caption(ch_id, ind, messages)
+                            byted_photo = await self.app.download_media(mes, in_memory=True)
+                            self.vk_album.add_photo(album_id, byted_photo, caption)
 
-                    self.posted[ch_id].append(mes.id)
-                logging.info(f"Uploaded {ch_id}")
+                        self.posted[ch_id].append(mes.id)
+                    logging.info(f"Uploaded {ch_id}")
+                except KeyError:
+                    pass
         logging.info(msg="Finished reposting")
 
     async def __get_caption(self, channel_id: int, ind: int, messages: list[Message]):
