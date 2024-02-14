@@ -1,4 +1,4 @@
 /.venv
 /my_account.session
-telegram/__pycache__
-vk/__pycache__
+/my_account.session-journal
+*/__pycache__
