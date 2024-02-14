@@ -289,6 +289,7 @@ class UserBot:
             if not (ch_id in self.chats_ids and ch_id in self.albums_ids and ch_id in self.posted):
                 continue
             logging.info(f"Uploading {ch_id}...")
+            
             messages: list[Message] = [
                 mes
                 async for mes in self.app.get_chat_history(ch_id, self.limit)
