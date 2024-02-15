@@ -75,9 +75,13 @@ class VkAlbum:
             sleep_multiplier += 0.1
             retry_seconds = self.retry_seconds * sleep_multiplier
             self.__anti_flood_control()
-            logging.info(
+            logging.warning(
                 msg=f"Sleeping for {retry_seconds:0.1f} seconds and retrying..."
             )
             time.sleep(retry_seconds)
 
             self.__call_vk_method(func, sleep_multiplier, **kwargs)
+        elif "[5]" in err_text:
+            logging.error(msg="VK token was expired. Please update it in `config.ini` file")
+        else:
+            logging.error(msg=f"There is a problem with VK API: {err_text}")
