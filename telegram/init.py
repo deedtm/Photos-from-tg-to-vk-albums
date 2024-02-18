@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import telegram.utils as utils
 import logging
 from pyrogram import Client, filters
@@ -26,9 +27,10 @@ class UserBot:
         password: str,
         vk_album: VkAlbum,
     ):
-        self.__update_chats_data({"posted": {}, "albums_ids": {}})
+        if 'chats_data.json' not in os.listdir('telegram'):
+            self.__update_chats_data({"posted": [], "albums_ids": []})
         self.chats_ids = chats_ids
-        self.chats = {}
+        self.chats = {chat_id: None for chat_id in chats_ids}
         self.posted = self.__get_posted()
         self.albums_ids = self.__get_albums_ids()
         self.interval = interval
@@ -46,7 +48,7 @@ class UserBot:
         self.__add_handlers()
 
     async def __help_handler(self, client: Client, msg: Message):
-        if not self.chats:
+        if None in self.chats.values():
             self.chats = await self.__get_chats()
         
         commands = utils.get_commands_descs(bot_texts["descriptions"])
@@ -61,7 +63,7 @@ class UserBot:
             await msg.edit(bot_errors["flood_wait"].format(seconds=seconds))
 
     async def __chats_handler(self, client: Client, msg: Message):
-        if not self.chats:
+        if None in self.chats.values():
             self.chats = await self.__get_chats()
         chats_descs = utils.get_chats_descs(self.chats.values())
         try:
@@ -74,7 +76,7 @@ class UserBot:
             await msg.edit(bot_errors["flood_wait"].format(seconds=seconds))
 
     async def __start_handler(self, client: Client, msg: Message):
-        if not self.chats:
+        if None in self.chats.values():
             self.chats = await self.__get_chats()
         if self.is_started:
             try:
@@ -118,6 +120,8 @@ class UserBot:
         await msg.edit(bot_texts["interval"].format(prev=prev, cur=cur))
 
     async def __add_handler(self, client: Client, msg: Message):
+        if None in self.chats.values():
+            self.chats = await self.__get_chats()
         _, arg = tuple(msg.text.split(" ", 1))
         if not arg.startswith("@"):
             async for mes in client.search_global(arg):
@@ -138,6 +142,8 @@ class UserBot:
 
         except (bad_request_400.UsernameInvalid, bad_request_400.UsernameNotOccupied):
             text = bot_errors["invalid_username"].format(username=chat_id)
+        except UnboundLocalError:
+            text = bot_errors["invalid_argument"].format(arg=', '.join(arg.split()))
 
         try:
             await msg.edit(text)
@@ -146,6 +152,8 @@ class UserBot:
             await msg.edit(bot_errors["flood_wait"].format(seconds=seconds))
 
     async def __multiple_add(self, usernames: list[str]):
+        if None in self.chats.values():
+            self.chats = await self.__get_chats()
         successful = []
         unsuccessful = []
         for username in usernames:
@@ -293,9 +301,10 @@ class UserBot:
         logging.info("Started reposting")
         for chat_id in self.chats:
             chat_id = str(chat_id)
-            if not (chat_id in self.albums_ids and chat_id in self.posted):
-                continue
-            logging.info(f"Uploading {chat_id}...")
+            logging.info(f"Uploading {chat_id}...")           
+            if chat_id not in self.posted:
+                self.posted.setdefault(chat_id, [])
+                
             if not self.posted[chat_id]:
                 limit = 20
             else:
@@ -330,6 +339,7 @@ class UserBot:
 
     async def __get_photos_data(self, messages: list[Message]):
         data = []
+        print(self.posted)
         for ind, mes in enumerate(messages):
             if mes.photo:
                 caption = await self.__get_photo_caption(ind, messages)
@@ -395,7 +405,9 @@ class UserBot:
             
     def __save_posted(self):
         data = self.__get_chats_data()
+        print(self.posted)
         data['posted'] = self.posted
+        print(self.posted)
         self.__update_chats_data(data)
         
     def __save_albums_ids(self):

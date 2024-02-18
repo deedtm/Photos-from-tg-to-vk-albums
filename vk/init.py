@@ -82,10 +82,11 @@ class VkAlbum:
         except AttributeError:
             method = func
         logging.error(msg=f"{err.__class__.__name__}:{method}:{err_text}")
+        
+        sleep_multiplier += 0.1
+        retry_seconds = self.retry_seconds * sleep_multiplier
 
         if "[9]" in err_text:
-            sleep_multiplier += 0.1
-            retry_seconds = self.retry_seconds * sleep_multiplier
             self.__anti_flood_control()
             logging.warning(
                 msg=f"Sleeping for {retry_seconds:0.1f} seconds and retrying..."
@@ -99,7 +100,7 @@ class VkAlbum:
         elif "[100]" in err_text:
             if "photos_list" in err_text:
                 logging.warning(
-                    msg=f"Failed to upload photo to album. Retrying in {self.retry_seconds // 10} seconds..."
+                    msg=f"Failed to upload photo to album. Retrying in {retry_seconds / 10:0.1f} seconds..."
                 )
-                time.sleep(self.retry_seconds // 10)
+                time.sleep(retry_seconds / 10)
                 self.__call_vk_method(func, sleep_multiplier, **kwargs)
