@@ -7,7 +7,6 @@ from pyrogram.types import Message, Chat
 from pyrogram.handlers.message_handler import MessageHandler
 from pyrogram.errors.exceptions import bad_request_400, flood_420
 from vk.init import VkAlbum
-from telegram.exceptions import ChatAlreadyIn
 
 with open("telegram/commands.json", "r") as f:
     bot_texts: dict = json.load(f)
@@ -27,6 +26,7 @@ class UserBot:
         password: str,
         vk_album: VkAlbum,
     ):
+        self.__update_chats_data({"posted": {}, "albums_ids": {}})
         self.chats_ids = chats_ids
         self.chats = {}
         self.posted = self.__get_posted()
