@@ -29,6 +29,12 @@ class VkAlbum:
             self.upload.photo, photos=photo, album_id=album_id, caption=caption
         )
 
+    def add_photos(self, album_id: int, photos_data: tuple[BytesIO, str]):
+        logging.info(msg=f"Uploading {len(photos_data)} photos to {album_id}...")
+        for photo, caption in photos_data:
+            self.add_photo(album_id, photo, caption)
+            time.sleep(1.5)
+
     def get_albums(self):
         return self.__call_vk_method(self.vk.photos.getAlbums, owner_id=self.user_id)
 
@@ -51,10 +57,12 @@ class VkAlbum:
                 self.__call_vk_method(self.vk.newsfeed.get),
                 self.__call_vk_method(self.vk.search.getHints, q="123))", limit=1),
             ]
-            results = ', '.join(['ok' if output['items'] else 'bad' for output in outputs])
-            logging.info(msg=f'Results: {results}')
+            results = ", ".join(
+                ["ok" if output["items"] else "bad" for output in outputs]
+            )
+            logging.info(msg=f"Results: {results}")
 
-    def __call_vk_method(self, method, sleep_multiplier = 0.9, **kwargs):
+    def __call_vk_method(self, method, sleep_multiplier=0.9, **kwargs):
         try:
             output = method(**kwargs)
             return output
@@ -62,7 +70,11 @@ class VkAlbum:
             self.__api_error_handler(err, method, sleep_multiplier, **kwargs)
 
     def __api_error_handler(
-        self, err: vk_api.exceptions.ApiError, func: vk_api.vk_api.VkApiMethod, sleep_multiplier: float, **kwargs
+        self,
+        err: vk_api.exceptions.ApiError,
+        func: vk_api.vk_api.VkApiMethod,
+        sleep_multiplier: float,
+        **kwargs,
     ):
         err_text = err.__str__()
         try:
@@ -79,9 +91,15 @@ class VkAlbum:
                 msg=f"Sleeping for {retry_seconds:0.1f} seconds and retrying..."
             )
             time.sleep(retry_seconds)
-
             self.__call_vk_method(func, sleep_multiplier, **kwargs)
         elif "[5]" in err_text:
-            logging.error(msg="VK token was expired. Please update it in `config.ini` file")
-        else:
-            logging.error(msg=f"There is a problem with VK API: {err_text}")
+            logging.error(
+                msg="VK token was expired. Please update it in `config.ini` file"
+            )
+        elif "[100]" in err_text:
+            if "photos_list" in err_text:
+                logging.warning(
+                    msg=f"Failed to upload photo to album. Retrying in {self.retry_seconds // 10} seconds..."
+                )
+                time.sleep(self.retry_seconds // 10)
+                self.__call_vk_method(func, sleep_multiplier, **kwargs)

@@ -9,7 +9,6 @@ API_ID = int(config.get("telegram", "api_id"))
 API_HASH = config.get("telegram", "api_hash")
 SESSION_NAME = config.get("telegram", "session_name")
 INTERVAL = int(config.get("telegram", "interval"))
-LIMIT = int(config.get("telegram", "limit"))
 CHANNELS_IDS = list(map(int, config.get("telegram", "channels_ids").split(', ')))
 PHONE_NUMBER = config.get("telegram", "phone_number")
 PASSWORD = config.get("telegram", "password")
@@ -20,7 +19,7 @@ ANTIFLOOD_TRIES = int(config.get("vk", "antiflood-control_tries"))
 
 def main():
     vk_album = VkAlbum(VK_TOKEN, RETRY_SECONDS, ANTIFLOOD_TRIES)
-    ub = UserBot(API_ID, API_HASH, SESSION_NAME, INTERVAL, CHANNELS_IDS, LIMIT, PHONE_NUMBER, PASSWORD, vk_album)
+    ub = UserBot(API_ID, API_HASH, SESSION_NAME, INTERVAL, CHANNELS_IDS, PHONE_NUMBER, PASSWORD, vk_album)
     ub.app.run()    
 
 

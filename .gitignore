@@ -1,4 +1,5 @@
-/.venv
-/my_account.session
-/my_account.session-journal
+.venv
+*.session
+*.session-journal
 */__pycache__
+temp.py

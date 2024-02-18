@@ -3,7 +3,7 @@ import json
 import telegram.utils as utils
 import logging
 from pyrogram import Client, filters
-from pyrogram.types import Message
+from pyrogram.types import Message, Chat
 from pyrogram.handlers.message_handler import MessageHandler
 from pyrogram.errors.exceptions import bad_request_400, flood_420
 from vk.init import VkAlbum
@@ -23,19 +23,18 @@ class UserBot:
         session_name: str,
         interval: int,
         chats_ids: list[int],
-        limit: int,
         phone_number: str,
         password: str,
         vk_album: VkAlbum,
     ):
-        self.posted = {ch_id: [] for ch_id in chats_ids}
-        self.albums_ids = {}
-        self.is_started = False
         self.chats_ids = chats_ids
+        self.chats = {}
+        self.posted = self.__get_posted()
+        self.albums_ids = self.__get_albums_ids()
         self.interval = interval
-        self.limit = limit
         self.vk_album = vk_album
         self.session_name = session_name
+        self.is_started = False
         self.app = Client(
             session_name,
             api_id=api_id,
@@ -43,24 +42,28 @@ class UserBot:
             phone_number=phone_number,
             password=password,
         )
-
+        
         self.__add_handlers()
 
     async def __help_handler(self, client: Client, msg: Message):
+        if not self.chats:
+            self.chats = await self.__get_chats()
+        
         commands = utils.get_commands_descs(bot_texts["descriptions"])
         interval = utils.format_interval(self.interval)
 
         try:
             await msg.edit(
-                bot_texts["help"].format(commands=commands, interval=interval, limit=self.limit)
+                bot_texts["help"].format(commands=commands, interval=interval)
             )
         except flood_420.FloodWait as err:
             seconds = int(err.__str__().split("of ", 1)[-1].split()[0])
             await msg.edit(bot_errors["flood_wait"].format(seconds=seconds))
 
     async def __chats_handler(self, client: Client, msg: Message):
-        chats = [await client.get_chat(id) for id in self.chats_ids]
-        chats_descs = utils.get_chats_descs(chats)
+        if not self.chats:
+            self.chats = await self.__get_chats()
+        chats_descs = utils.get_chats_descs(self.chats.values())
         try:
             await msg.edit(
                 bot_texts["chats"].format(chats=chats_descs),
@@ -71,6 +74,8 @@ class UserBot:
             await msg.edit(bot_errors["flood_wait"].format(seconds=seconds))
 
     async def __start_handler(self, client: Client, msg: Message):
+        if not self.chats:
+            self.chats = await self.__get_chats()
         if self.is_started:
             try:
                 await msg.edit(bot_errors["already_started"])
@@ -78,8 +83,8 @@ class UserBot:
                 seconds = int(err.__str__().split("of ", 1)[-1].split()[0])
                 await msg.edit(bot_errors["flood_wait"].format(seconds=seconds))
         else:
-            for chat_id in self.chats_ids:
-                await self.__add_chat(chat_id)
+            for chat in self.chats.values():
+                await self.__add_chat(chat=chat)
             try:
                 self.is_started = True
                 await msg.edit(bot_texts["start"])
@@ -111,13 +116,6 @@ class UserBot:
         cur = utils.format_interval(self.interval)
 
         await msg.edit(bot_texts["interval"].format(prev=prev, cur=cur))
-
-    async def __limit_handler(self, client: Client, msg: Message):
-        _, arg = tuple(msg.text.split(" ", 1))
-        prev = self.limit
-        self.limit = int(arg)
-
-        await msg.edit(bot_texts["limit"].format(prev=prev, cur=self.limit))
 
     async def __add_handler(self, client: Client, msg: Message):
         _, arg = tuple(msg.text.split(" ", 1))
@@ -236,28 +234,34 @@ class UserBot:
         )
         return text
 
-    async def __add_chat(self, chat_id: int | str):
+    async def __add_chat(self, chat_id: int | str | None = None, chat: Chat | None = None):
+        if chat_id is None and chat is None:
+            raise AttributeError("chat_id or chat must be filled")
         try:
-            chat = await self.app.get_chat(chat_id)
+            if chat is None:
+                chat = await self.app.get_chat(chat_id)
+
             is_added = False
-            if chat_id not in self.chats_ids:
-                self.chats_ids.append(chat.id)
+            if chat.id not in self.chats:
+                self.chats.setdefault(chat.id, chat)
                 is_added = True
-            if chat_id not in self.posted:
+            if str(chat.id) not in self.posted:
                 self.posted.setdefault(chat.id, [])
-                is_added = True
-            if chat_id not in self.albums_ids:
-                album = self.vk_album.get_album_by_title(chat.title)
-                if not album:
-                    album = self.vk_album.create_album(chat.title)
-                    logging.info(f"Created new album: {chat.title}")
-                elif album and chat_id not in self.albums_ids:
-                    pass
-                else:
-                    return
-                self.albums_ids.setdefault(chat.id, album["id"])
+                self.__save_posted()
                 is_added = True
                 
+            album = self.vk_album.get_album_by_title(chat.title)
+            if album is None:
+                album = self.vk_album.create_album(chat.title)
+                logging.info(f"Created new album: {chat.title}")
+            if str(chat.id) in self.albums_ids:
+                self.albums_ids[str(chat.id)] = album['id']
+                is_added = True
+            else:
+                self.albums_ids.setdefault(str(chat.id), album["id"])
+                is_added = True
+            self.__save_albums_ids()
+            
             return is_added
         except flood_420.FloodWait as err:
             seconds = int(err.__str__().split("of ", 1)[-1].split()[0])
@@ -269,9 +273,12 @@ class UserBot:
         album = self.vk_album.get_album_by_title(chat.title)
         if album:
             self.vk_album.remove_album(album["id"])
-        self.albums_ids.pop(chat.id)
-        self.posted.pop(chat.id)
-        self.chats_ids.remove(chat.id)
+        self.albums_ids.pop(str(chat.id))
+        self.posted.pop(str(chat.id))
+        self.chats.pop(chat.id)
+        
+        self.__save_posted()
+        self.__save_albums_ids()
 
     async def __start_reposting(self):
         logging.info(msg=f'Reposting was started')
@@ -284,85 +291,135 @@ class UserBot:
 
     async def __repost_to_album(self):
         logging.info("Started reposting")
-
-        for ch_id in self.chats_ids:
-            if not (ch_id in self.chats_ids and ch_id in self.albums_ids and ch_id in self.posted):
+        for chat_id in self.chats:
+            chat_id = str(chat_id)
+            if not (chat_id in self.albums_ids and chat_id in self.posted):
                 continue
-            logging.info(f"Uploading {ch_id}...")
-            
+            logging.info(f"Uploading {chat_id}...")
+            if not self.posted[chat_id]:
+                limit = 20
+            else:
+                limit = abs([mes async for mes in self.app.get_chat_history(chat_id, 1)][0].id - self.posted[chat_id][0])
+                if limit == 0:
+                    logging.info(msg=f"No new messages in {chat_id}")
+                    continue
             messages: list[Message] = [
                 mes
-                async for mes in self.app.get_chat_history(ch_id, self.limit)
-                if mes.id not in self.posted[ch_id]
+                async for mes in self.app.get_chat_history(chat_id, limit)
+                if mes.id not in self.posted[str(chat_id)]
             ]
-            album_id = self.albums_ids[ch_id]
+            album_id = self.albums_ids[chat_id]
             if not messages:
-                logging.info(f"No photos to upload from {ch_id}")
-            else:
-                try:
-                    for ind, mes in enumerate(messages):
-                        if mes.photo:
-                            caption = await self.__get_caption(ch_id, ind, messages)
-                            byted_photo = await self.app.download_media(mes, in_memory=True)
-                            self.vk_album.add_photo(album_id, byted_photo, caption)
-
-                        self.posted[ch_id].append(mes.id)
-                    logging.info(f"Uploaded {ch_id}")
-                except KeyError:
-                    pass
+                logging.info(f"No photos to upload from {chat_id}")
+                continue
+            messages = await self.__refill_messages(messages)
+            photos_data = await self.__get_photos_data(messages)
+            self.vk_album.add_photos(album_id, photos_data)
+            logging.info(f"Uploaded {chat_id}")
         logging.info(msg="Finished reposting")
-
-    async def __get_caption(self, channel_id: int, ind: int, messages: list[Message]):
-        mes = messages[ind]
-        i = 1
-        media_group = None
+        
+    async def __refill_messages(self, messages: list[Message]):
         try:
-            caption = mes.caption
-            if not caption:
-                caption = (await self.app.get_media_group(channel_id, mes.id))[0].caption
-                while not caption:
-                    try:
-                        mes = messages[ind + i]
-                        caption = mes.caption
-                        if mes.photo and not caption:
-                            caption = (
-                                await self.app.get_media_group(channel_id, mes.id)
-                            )[0].caption
-                        if not caption:
-                            caption = mes.text
-                        i += 1 if not media_group else len(media_group)
-                    except IndexError:
-                        i = 1
-                        while not caption:
-                            try:
-                                mes = messages[ind - i]
-                                caption = mes.caption
-                                if mes.photo and not caption:
-                                    caption = (
-                                        await self.app.get_media_group(channel_id, mes.id)
-                                    )[0].caption
-                                if not caption:
-                                    caption = mes.text
-                                i += 1
-                            except IndexError:
-                                logging.warning(
-                                    msg=f"Не найдено описание для {channel_id}, {messages[ind].id}"
-                                )
-                                return
-            return caption
-        except ValueError as err:
-            err_text = err.__str__()
-            logging.error(msg=err_text)
-            return
+            mg = await self.app.get_media_group(messages[-1].chat.id, messages[-1].id)
+            dif = messages[-1].id - mg[0].id
+            if dif != 0:
+                messages.extend([mes async for mes in self.app.get_chat_history(messages[0].chat.id, dif, len(messages))])
+        except ValueError:
+            pass
+        return messages
 
+    async def __get_photos_data(self, messages: list[Message]):
+        data = []
+        for ind, mes in enumerate(messages):
+            if mes.photo:
+                caption = await self.__get_photo_caption(ind, messages)
+                photo = await self.app.download_media(mes, in_memory=True)
+                data.append((photo, caption))
+            self.posted[str(mes.chat.id)].append(mes.id)
+        self.__save_posted()
+        return data
+
+    async def __get_photo_caption(self, ind: int, messages: list[Message]):
+        mes = messages[ind]
+        ids_and_chats = [(mes.id, mes.chat.id) for mes in messages]
+
+        caption = await self.__get_caption(mes)
+        if caption is None:
+            caption = await self.__get_photo_caption(ind - 1, messages)
+        if not isinstance(caption, list):
+            return caption
+        
+        media_group = caption
+        next_mes_ind = ids_and_chats.index((media_group[-1].id, media_group[-1].chat.id)) - 1
+        next_mes = messages[next_mes_ind]
+        prev_mes_ind = ids_and_chats.index((media_group[0].id, media_group[0].chat.id)) + 1
+
+        if prev_mes_ind != len(messages):
+            prev_mes = messages[prev_mes_ind]
+            dif_prev = abs(mes.date - prev_mes.date)
+            dif_next = abs(mes.date - next_mes.date)
+            
+        if prev_mes_ind >= len(messages) or dif_next < dif_prev: # берем подпись в качестве след. сообщения
+            ind = next_mes_ind
+            caption = await self.__get_caption(next_mes)
+        elif dif_next > dif_prev: # берем подпись в качестве пред. сообщения
+            ind = prev_mes_ind
+            caption = await self.__get_caption(prev_mes)
+        return await self.__get_photo_caption(ind, messages)
+        
+    async def __get_caption(self, mes: Message):
+        if mes.text:
+            return mes.text
+        if mes.caption:
+            return mes.caption
+        
+        try:
+            media_group = await self.app.get_media_group(mes.chat.id, mes.id)
+            mg_caption = media_group[0].caption
+            if mg_caption:
+                return mg_caption
+            return media_group
+        except ValueError:
+            return
+        
+    async def __get_chats(self):
+        return {chat_id: await self.app.get_chat(chat_id) for chat_id in self.chats_ids}
+     
+    def __get_chats_data(self) -> dict[str, dict[int, int]]:
+        with open('telegram/chats_data.json') as f:
+            return json.load(f)
+        
+    def __update_chats_data(self, value: dict):
+        with open('telegram/chats_data.json', 'w') as f:
+            json.dump(value, f, indent=4)
+            
+    def __save_posted(self):
+        data = self.__get_chats_data()
+        data['posted'] = self.posted
+        self.__update_chats_data(data)
+        
+    def __save_albums_ids(self):
+        data = self.__get_chats_data()
+        data['albums_ids'] = self.albums_ids
+        self.__update_chats_data(data)
+        
+    def __get_posted(self):
+        data = self.__get_chats_data()
+        saved_posted = data['posted'].items()
+        posted = {chat_id: value for chat_id, value in saved_posted}
+        data['posted'] = posted
+        return posted
+    
+    def __get_albums_ids(self):
+        data = self.__get_chats_data()
+        saved_albums_ids = data['albums_ids'].items()
+        albums_ids = {chat_id: value for chat_id, value in saved_albums_ids}
+        data['albums_ids'] = albums_ids
+        return albums_ids
+            
     def __add_handlers(self):
         self.app.add_handler(
             MessageHandler(self.__help_handler, filters.me & filters.regex("\\.help"))
-        )
-        self.app.add_handler(
-            MessageHandler(
-                self.__limit_handler, filters.me & filters.regex("\\.limit \d+")
-            )
         )
         self.app.add_handler(
             MessageHandler(
@@ -384,3 +441,4 @@ class UserBot:
         self.app.add_handler(
             MessageHandler(self.__rem_handler, filters.me & filters.regex("\\.rem .+"))
         )
+        
