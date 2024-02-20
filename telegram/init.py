@@ -339,7 +339,6 @@ class UserBot:
 
     async def __get_photos_data(self, messages: list[Message]):
         data = []
-        print(self.posted)
         for ind, mes in enumerate(messages):
             if mes.photo:
                 caption = await self.__get_photo_caption(ind, messages)

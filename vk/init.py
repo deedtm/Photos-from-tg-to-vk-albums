@@ -1,5 +1,7 @@
+import json
 import time
 import vk_api
+import requests
 import logging
 from io import BytesIO
 from PIL import Image
@@ -25,15 +27,34 @@ class VkAlbum:
         image = Image.open(photo)
         image.save(photo, format="jpeg")
         photo.seek(0)
+
+        return self.__upload_photo(album_id, photo)
+        # return self.__call_vk_method(
+        #     self.upload.photo, album_id=album_id, photos=photo
+        # )
+
+    def __upload_photo(self, album_id: int, photo: BytesIO):
+        upload_url = self.vk.photos.getUploadServer(album_id=album_id)["upload_url"]
+        files = {"file1": photo}
+        res = requests.post(upload_url, files=files).json()
+
         return self.__call_vk_method(
-            self.upload.photo, photos=photo, album_id=album_id, caption=caption
+            self.vk.photos.save,
+            album_id=album_id,
+            server=res["server"],
+            photos_list=res["photos_list"],
+            hash=res["hash"],
         )
 
     def add_photos(self, album_id: int, photos_data: tuple[BytesIO, str]):
-        logging.info(msg=f"Uploading {len(photos_data)} photos to {album_id}...")
+        photos_amount = len(photos_data)
+        logging.info(msg=f"Uploading {photos_amount} photos to {album_id}...")
+        i = 0
         for photo, caption in photos_data:
             self.add_photo(album_id, photo, caption)
             time.sleep(1.5)
+            i += 1
+            print(f"Uploaded {i}/{photos_amount}...")
 
     def get_albums(self):
         return self.__call_vk_method(self.vk.photos.getAlbums, owner_id=self.user_id)
@@ -82,7 +103,7 @@ class VkAlbum:
         except AttributeError:
             method = func
         logging.error(msg=f"{err.__class__.__name__}:{method}:{err_text}")
-        
+
         sleep_multiplier += 0.1
         retry_seconds = self.retry_seconds * sleep_multiplier
 
