@@ -376,7 +376,8 @@ class UserBot:
             caption = await self.__get_caption(prev_mes)
         
         if caption is None:
-            return await self.__get_photo_caption(ind, messages) 
+            return await self.__get_photo_caption(ind, messages)
+        logging.info(msg=f"Found caption for {mes.id}:\n{caption}")
         return caption
         
     async def __get_caption(self, mes: Message):

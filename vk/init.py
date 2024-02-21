@@ -32,12 +32,12 @@ class VkAlbum:
         image.save(photo, format="jpeg")
         photo.seek(0)
 
-        return self.__upload_photo(album_id, photo)
+        return self.__upload_photo(album_id, photo, caption)
         # return self.__call_vk_method(
         #     self.upload.photo, album_id=album_id, photos=photo
         # )
 
-    def __upload_photo(self, album_id: int, photo: BytesIO):
+    def __upload_photo(self, album_id: int, photo: BytesIO, caption: str):
         upload_url = self.vk.photos.getUploadServer(album_id=album_id)["upload_url"]
         files = {"file1": photo}
         res = requests.post(upload_url, files=files).json()
@@ -48,6 +48,7 @@ class VkAlbum:
             server=res["server"],
             photos_list=res["photos_list"],
             hash=res["hash"],
+            caption=caption[:2048]
         )
 
     def add_photos(self, album_id: int, photos_data: tuple[BytesIO, str]):
