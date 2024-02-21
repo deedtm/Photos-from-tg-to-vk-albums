@@ -353,9 +353,9 @@ class UserBot:
         ids_and_chats = [(mes.id, mes.chat.id) for mes in messages]
 
         caption = await self.__get_caption(mes)
-        if caption is None:
-            caption = await self.__get_photo_caption(ind - 1, messages)
-        if not isinstance(caption, list):
+        while caption is None: # нет медиагруппы и подписи
+            caption = await self.__get_caption(messages[ind - 1]) # берем следующее сообщение
+        if not isinstance(caption, list): # есть подпись
             return caption
         
         media_group = caption
@@ -374,7 +374,10 @@ class UserBot:
         elif dif_next > dif_prev: # берем подпись в качестве пред. сообщения
             ind = prev_mes_ind
             caption = await self.__get_caption(prev_mes)
-        return await self.__get_photo_caption(ind, messages)
+        
+        if caption is None:
+            return await self.__get_photo_caption(ind, messages) 
+        return caption
         
     async def __get_caption(self, mes: Message):
         if mes.text:
@@ -385,9 +388,7 @@ class UserBot:
         try:
             media_group = await self.app.get_media_group(mes.chat.id, mes.id)
             mg_caption = media_group[0].caption
-            if mg_caption:
-                return mg_caption
-            return media_group
+            return mg_caption if mg_caption else media_group
         except ValueError:
             return
         
