@@ -128,7 +128,7 @@ class VkAlbum:
         elif "[100]" in err_text:
             if "photos_list" in err_text:
                 logging.warning(
-                    msg=f"Failed to upload photo to album. Retrying in {retry_seconds / 10:0.1f} seconds..."
+                    msg=f"Failed to upload photo to album. Retrying in {retry_seconds // 10} seconds..."
                 )
                 time.sleep(retry_seconds / 10)
-                self.__call_vk_method(func, sleep_multiplier, **kwargs)
+                self.__upload_photo(**kwargs)
