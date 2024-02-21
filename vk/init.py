@@ -59,7 +59,7 @@ class VkAlbum:
                 self.add_photo(album_id, photo, caption)
                 time.sleep(1.5)
                 i += 1
-                print(f"Uploaded {i}/{photos_amount}...")
+                logging.info(f"Uploaded {i}/{photos_amount}...")
             except vk_api.exceptions.ApiError as err:
                 logging.warning(
                     msg=f"Failed to upload photo to album. Retrying in {self.retry_seconds // 10} seconds..."
