@@ -42,13 +42,12 @@ class VkAlbum:
         files = {"file1": photo}
         res = requests.post(upload_url, files=files).json()
 
-        return self.__call_vk_method(
-            self.vk.photos.save,
+        self.vk.photos.save(
             album_id=album_id,
             server=res["server"],
             photos_list=res["photos_list"],
             hash=res["hash"],
-            caption=caption[:2048]
+            caption=caption[:2048],
         )
 
     def add_photos(self, album_id: int, photos_data: tuple[BytesIO, str]):
@@ -56,10 +55,20 @@ class VkAlbum:
         logging.info(msg=f"Uploading {photos_amount} photos to {album_id}...")
         i = 0
         for photo, caption in photos_data:
-            self.add_photo(album_id, photo, caption)
-            time.sleep(1.5)
-            i += 1
-            print(f"Uploaded {i}/{photos_amount}...")
+            try:
+                self.add_photo(album_id, photo, caption)
+                time.sleep(1.5)
+                i += 1
+                print(f"Uploaded {i}/{photos_amount}...")
+            except vk_api.exceptions.ApiError as err:
+                logging.warning(
+                    msg=f"Failed to upload photo to album. Retrying in {self.retry_seconds // 10} seconds..."
+                )
+                time.sleep(self.retry_seconds / 10)
+                self.add_photo(album_id, photo, caption)
+                time.sleep(1.5)
+                i += 1
+                print(f"Uploaded {i}/{photos_amount}...")
 
     def get_albums(self):
         return self.__call_vk_method(
@@ -125,11 +134,3 @@ class VkAlbum:
             logging.error(
                 msg="VK token was expired. Please update it in `config.ini` file"
             )
-        elif "[100]" in err_text:
-            if "photos_list" in err_text:
-                logging.warning(
-                    msg=f"Failed to upload photo to album. Retrying in {retry_seconds // 10} seconds..."
-                )
-                time.sleep(retry_seconds / 10)
-                print(kwargs)
-                self.__upload_photo(**kwargs)
