@@ -12,7 +12,11 @@ class VkAlbum:
         self.session = vk_api.VkApi(token=token)
         self.vk = self.session.get_api()
         self.upload = vk_api.VkUpload(self.vk)
-        self.user_id = self.__get_user_id()
+        self.login_user = self.__get_login_user()
+        self.login_user_id = self.login_user["id"]
+        logging.info(
+            msg=f"Logged in VK as {self.login_user['first_name']} {self.login_user['last_name']} @id{self.login_user_id}"
+        )
 
         self.retry_seconds = retry_seconds
         self.anti_flood_tries = anti_flood_tries
@@ -57,7 +61,9 @@ class VkAlbum:
             print(f"Uploaded {i}/{photos_amount}...")
 
     def get_albums(self):
-        return self.__call_vk_method(self.vk.photos.getAlbums, owner_id=self.user_id)
+        return self.__call_vk_method(
+            self.vk.photos.getAlbums, owner_id=self.login_user_id
+        )
 
     def get_album_by_title(self, name: str):
         albums = self.get_albums()
@@ -65,8 +71,8 @@ class VkAlbum:
             if name in album["title"]:
                 return album
 
-    def __get_user_id(self):
-        return self.__call_vk_method(self.vk.users.get)[0]["id"]
+    def __get_login_user(self):
+        return self.__call_vk_method(self.vk.users.get)[0]
 
     def __anti_flood_control(self):
         for i in range(self.anti_flood_tries):
