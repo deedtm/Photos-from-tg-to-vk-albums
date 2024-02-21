@@ -131,4 +131,5 @@ class VkAlbum:
                     msg=f"Failed to upload photo to album. Retrying in {retry_seconds // 10} seconds..."
                 )
                 time.sleep(retry_seconds / 10)
+                print(kwargs)
                 self.__upload_photo(**kwargs)

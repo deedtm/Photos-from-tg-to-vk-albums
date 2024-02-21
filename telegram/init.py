@@ -406,9 +406,7 @@ class UserBot:
             
     def __save_posted(self):
         data = self.__get_chats_data()
-        print(self.posted)
         data['posted'] = self.posted
-        print(self.posted)
         self.__update_chats_data(data)
         
     def __save_albums_ids(self):
