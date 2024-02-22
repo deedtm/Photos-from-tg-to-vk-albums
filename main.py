@@ -26,7 +26,7 @@ def main():
             logging.info(f"Disabled {name}")
             logger.setLevel(logging.WARNING)
     logging.info('Logging was disabled')
-    logging.info('Starting the userbot')
+    logging.info('Starting the userbot (~5 seconds)...')
     ub.app.run()    
 
 

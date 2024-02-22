@@ -361,6 +361,8 @@ class UserBot:
         return caption
         
     async def __get_caption(self, mes: Message | None = None, messages: list[Message] | None = None, ind: int | None = None, trying: int = 1):
+        if trying >= 100:
+            return None
         if mes is None and (messages is None or ind is None):
             raise ValueError("mes or messages and ind must be filled")
         if mes is None:
