@@ -8,6 +8,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message, Chat
 from pyrogram.handlers.message_handler import MessageHandler
 from pyrogram.errors.exceptions import bad_request_400, flood_420
+from vk.errors import AccessDenied
 from vk.init import VkAlbum
 
 with open("telegram/commands.json", "r") as f:
@@ -290,12 +291,17 @@ class UserBot:
 
     async def __start_reposting(self):
         logging.info(msg=f'Reposting was started')
-        while self.is_started:
-            await asyncio.gather(
-                self.__repost_to_album(),
-                asyncio.sleep(self.interval),
-            )
-        logging.info(msg=f'Reposting was stopped')
+        try:
+            while self.is_started:
+                await asyncio.gather(
+                    self.__repost_to_album(),
+                    asyncio.sleep(self.interval),
+                )
+            logging.info(msg=f'Reposting was stopped')
+        except AccessDenied as err:
+            logging.error(err)
+            self.is_started = False
+            await self.app.send_message('me', bot_errors["access_denied"])
 
     async def __repost_to_album(self):
         logging.info("Started reposting")

@@ -6,6 +6,8 @@ import logging
 from io import BytesIO
 from PIL import Image
 
+from vk.errors import AccessDenied
+
 
 class VkAlbum:
     def __init__(self, token: str, retry_seconds: int, anti_flood_tries: int):
@@ -140,3 +142,5 @@ class VkAlbum:
             logging.error(
                 msg="VK token was expired. Please update it in `config.ini` file"
             )
+        elif "[200]" in err_text:
+            raise AccessDenied(method)
