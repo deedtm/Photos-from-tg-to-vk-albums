@@ -54,7 +54,6 @@ class VkAlbum:
         
     def __upload_photo_wrapper(self, album_id: int, photo: BytesIO, caption: str):
         try:
-            time.sleep(self.retry_seconds / 10)
             self.add_photo(album_id, photo, caption)
         except vk_api.exceptions.ApiError as err:
             err_text = err.__str__()
