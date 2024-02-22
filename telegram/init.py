@@ -357,17 +357,22 @@ class UserBot:
     async def __get_photo_caption(self, ind: int, messages: list[Message]):
         mes = messages[ind]
         caption = await self.__get_caption(None, messages, ind)
-        logging.info(msg=f"Found caption for {mes.id}:\n{caption}")
+        if caption is None:
+            msg = f"Not found caption for {mes.id}"
+            caption = ''
+        else:
+            msg = f"Found caption for {mes.id}:\n{caption}"
+        logging.info(msg=msg)
         return caption
         
-    async def __get_caption(self, mes: Message | None = None, messages: list[Message] | None = None, ind: int | None = None, trying: int = 1):
-        if trying >= 100:
+    async def __get_caption(self, mes: Message | None = None, messages: list[Message] | None = None, ind: int | None = None, try_num: int = 1):
+        if try_num >= 100:
             return None
         if mes is None and (messages is None or ind is None):
             raise ValueError("mes or messages and ind must be filled")
         if mes is None:
             mes = messages[ind]
-        logging.info(f'{trying} try to get caption for {mes.id} ({mes.chat.id})...')
+        logging.info(f'Try {try_num} to get caption for {mes.id} ({mes.chat.id})...')
         
         if mes.text:
             return mes.text
@@ -386,7 +391,7 @@ class UserBot:
             raise ValueError("caption was not found. messages and ind must be filled")
 
         ind = await self.__get_new_message_ind(messages, ind, media_group)
-        return await self.__get_caption(None, messages, ind, trying + 1)
+        return await self.__get_caption(None, messages, ind, try_num + 1)
         
     async def __get_new_message_ind(self, messages: list[Message], ind: int, media_group: list[Message] | None = None):
         if media_group is None:
