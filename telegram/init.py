@@ -3,6 +3,7 @@ import json
 import os
 import telegram.utils as utils
 import logging
+from datetime import timedelta
 from pyrogram import Client, filters
 from pyrogram.types import Message, Chat
 from pyrogram.handlers.message_handler import MessageHandler
@@ -43,8 +44,7 @@ class UserBot:
             api_hash=api_hash,
             phone_number=phone_number,
             password=password,
-        )
-        
+        )    
         self.__add_handlers()
 
     async def __help_handler(self, client: Client, msg: Message):
@@ -350,37 +350,17 @@ class UserBot:
 
     async def __get_photo_caption(self, ind: int, messages: list[Message]):
         mes = messages[ind]
-        ids_and_chats = [(mes.id, mes.chat.id) for mes in messages]
-
-        caption = await self.__get_caption(mes)
-        while caption is None: # нет медиагруппы и подписи
-            caption = await self.__get_caption(messages[ind - 1]) # берем следующее сообщение
-        if not isinstance(caption, list): # есть подпись
-            return caption
-        
-        media_group = caption
-        next_mes_ind = ids_and_chats.index((media_group[-1].id, media_group[-1].chat.id)) - 1
-        next_mes = messages[next_mes_ind]
-        prev_mes_ind = ids_and_chats.index((media_group[0].id, media_group[0].chat.id)) + 1
-
-        if prev_mes_ind != len(messages):
-            prev_mes = messages[prev_mes_ind]
-            dif_prev = abs(mes.date - prev_mes.date)
-            dif_next = abs(mes.date - next_mes.date)
-            
-        if prev_mes_ind >= len(messages) or dif_next < dif_prev: # берем подпись в качестве след. сообщения
-            ind = next_mes_ind
-            caption = await self.__get_caption(next_mes)
-        elif dif_next > dif_prev: # берем подпись в качестве пред. сообщения
-            ind = prev_mes_ind
-            caption = await self.__get_caption(prev_mes)
-        
-        if caption is None:
-            return await self.__get_photo_caption(ind, messages)
+        caption = await self.__get_caption(None, messages, ind)
         logging.info(msg=f"Found caption for {mes.id}:\n{caption}")
         return caption
         
-    async def __get_caption(self, mes: Message):
+    async def __get_caption(self, mes: Message | None = None, messages: list[Message] | None = None, ind: int | None = None, trying: int = 1):
+        if mes is None and (messages is None or ind is None):
+            raise ValueError("mes or messages and ind must be filled")
+        if mes is None:
+            mes = messages[ind]
+        logging.info(f'{trying} try to get caption for {mes.id} ({mes.chat.id})...')
+        
         if mes.text:
             return mes.text
         if mes.caption:
@@ -389,10 +369,37 @@ class UserBot:
         try:
             media_group = await self.app.get_media_group(mes.chat.id, mes.id)
             mg_caption = media_group[0].caption
-            return mg_caption if mg_caption else media_group
-        except ValueError:
-            return
+            if mg_caption:
+                return mg_caption
+        except ValueError: # не нашлось подписи и медиагруппы у данного сообщения
+            media_group = None
         
+        if messages is None and ind is None:
+            raise ValueError("caption was not found. messages and ind must be filled")
+
+        ind = await self.__get_new_message_ind(messages, ind, media_group)
+        return await self.__get_caption(None, messages, ind, trying + 1)
+        
+    async def __get_new_message_ind(self, messages: list[Message], ind: int, media_group: list[Message] | None = None):
+        if media_group is None:
+            next_mes_ind = ind - 1
+            prev_mes_ind = ind + 1
+        else:
+            ids_and_chats = [(mes.id, mes.chat.id) for mes in messages]
+            next_mes_ind = ids_and_chats.index((media_group[-1].id, media_group[-1].chat.id)) - 1
+            prev_mes_ind = ids_and_chats.index((media_group[0].id, media_group[0].chat.id)) + 1
+
+        next_mes = messages[next_mes_ind]
+        if prev_mes_ind != len(messages):
+            prev_mes = messages[prev_mes_ind]
+            mes = messages[ind]
+            dif_prev = abs(mes.date - prev_mes.date)
+            dif_next = abs(mes.date - next_mes.date)
+        if prev_mes_ind >= len(messages) or ((timedelta(0, 0, 0, 0, 1) > dif_next or dif_next < dif_prev) and next_mes_ind >= 0): # берем подпись в качестве след. сообщения
+            return next_mes_ind
+        else: # берем подпись в качестве пред. сообщения
+            return prev_mes_ind
+                    
     async def __get_chats(self):
         return {chat_id: await self.app.get_chat(chat_id) for chat_id in self.chats_ids}
      

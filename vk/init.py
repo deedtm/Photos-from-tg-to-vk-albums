@@ -49,26 +49,32 @@ class VkAlbum:
             hash=res["hash"],
             caption=caption[:2048],
         )
+        
+    def __upload_photo_wrapper(self, album_id: int, photo: BytesIO, caption: str):
+        try:
+            time.sleep(self.retry_seconds / 10)
+            self.add_photo(album_id, photo, caption)
+        except vk_api.exceptions.ApiError as err:
+            err_text = err.__str__()
+            if '[100]' in err_text and 'photos_list is invalid' in err_text:
+                logging.warning(
+                    msg=f"Failed to upload photo to album. Retrying in {self.retry_seconds // 10} seconds..."
+                )
+                time.sleep(self.retry_seconds // 10)
+                self.__upload_photo_wrapper(album_id, photo, caption)
+            else:
+                self.__api_error_handler(err, self.add_photo, 1, album_id=album_id, photo=photo, caption=caption)
 
     def add_photos(self, album_id: int, photos_data: tuple[BytesIO, str]):
         photos_amount = len(photos_data)
         logging.info(msg=f"Uploading {photos_amount} photos to {album_id}...")
         i = 0
         for photo, caption in photos_data:
-            try:
-                self.add_photo(album_id, photo, caption)
-                time.sleep(1.5)
-                i += 1
-                logging.info(f"Uploaded {i}/{photos_amount}...")
-            except vk_api.exceptions.ApiError as err:
-                logging.warning(
-                    msg=f"Failed to upload photo to album. Retrying in {self.retry_seconds // 10} seconds..."
-                )
-                time.sleep(self.retry_seconds / 10)
-                self.add_photo(album_id, photo, caption)
-                time.sleep(1.5)
-                i += 1
-                print(f"Uploaded {i}/{photos_amount}...")
+            self.__upload_photo_wrapper(album_id, photo, caption)            
+            time.sleep(1.5)
+            i += 1
+            logging.info(f"Uploaded {i}/{photos_amount}...")
+                
 
     def get_albums(self):
         return self.__call_vk_method(
