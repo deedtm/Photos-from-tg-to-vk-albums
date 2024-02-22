@@ -23,7 +23,7 @@ def main():
     logging.info('Disabling pyrogram logging...')
     for name, logger in logging.root.manager.loggerDict.items():
         if name.startswith('pyrogram') and isinstance(logger, logging.Logger):
-            logging.info(f"Disabled {name}...")
+            logging.info(f"Disabled {name}")
             logger.setLevel(logging.WARNING)
     logging.info('Logging was disabled')
     logging.info('Starting the userbot')
