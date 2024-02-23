@@ -20,13 +20,12 @@ ANTIFLOOD_TRIES = int(config.get("vk", "antiflood-control_tries"))
 def main():
     vk_album = VkAlbum(VK_TOKEN, RETRY_SECONDS, ANTIFLOOD_TRIES)
     ub = UserBot(API_ID, API_HASH, SESSION_NAME, INTERVAL, CHANNELS_IDS, PHONE_NUMBER, PASSWORD, vk_album)
-    logging.info('Disabling pyrogram logging...')
+    logging.info('Disabling pyrogram session logging...')
     for name, logger in logging.root.manager.loggerDict.items():
-        if name.startswith('pyrogram') and isinstance(logger, logging.Logger):
+        if name.startswith('pyrogram.session') and isinstance(logger, logging.Logger):
             logging.info(f"Disabled {name}")
             logger.setLevel(logging.WARNING)
     logging.info('Logging was disabled')
-    logging.info('Starting the userbot (~5 seconds)...')
     ub.app.run()    
 
 

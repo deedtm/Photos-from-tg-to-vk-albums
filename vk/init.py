@@ -1,11 +1,9 @@
-import json
 import time
 import vk_api
 import requests
 import logging
 from io import BytesIO
 from PIL import Image
-
 from vk.errors import AccessDenied
 
 
@@ -55,16 +53,26 @@ class VkAlbum:
     def __upload_photo_wrapper(self, album_id: int, photo: BytesIO, caption: str):
         try:
             self.add_photo(album_id, photo, caption)
+        except requests.exceptions.JSONDecodeError as err:
+            logging.error(msg=f"Failed to decode json. Retrying in {self.retry_seconds // 10} seconds...")
+            time.sleep(self.retry_seconds // 10)
+            self.__upload_photo_wrapper(album_id, photo, caption)
+            
         except vk_api.exceptions.ApiError as err:
             err_text = err.__str__()
             if '[100]' in err_text and 'photos_list is invalid' in err_text:
-                logging.warning(
+                logging.error(
                     msg=f"Failed to upload photo to album. Retrying in {self.retry_seconds // 10} seconds..."
                 )
                 time.sleep(self.retry_seconds // 10)
                 self.__upload_photo_wrapper(album_id, photo, caption)
             else:
                 self.__api_error_handler(err, self.add_photo, 1, album_id=album_id, photo=photo, caption=caption)
+        
+        except BaseException as err:
+            logging.error(msg=f'{err.__class__.__name__}:{err}. Retrying in {self.retry_seconds // 1} seconds...')
+            time.sleep(self.retry_seconds / 10)
+            self.__upload_photo_wrapper(album_id, photo, caption)
 
     def add_photos(self, album_id: int, photos_data: tuple[BytesIO, str]):
         photos_amount = len(photos_data)
@@ -132,7 +140,7 @@ class VkAlbum:
 
         if "[9]" in err_text:
             self.__anti_flood_control()
-            logging.warning(
+            logging.info(
                 msg=f"Sleeping for {retry_seconds:0.1f} seconds and retrying..."
             )
             time.sleep(retry_seconds)

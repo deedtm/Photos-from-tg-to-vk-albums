@@ -3,3 +3,6 @@
 *.session-journal
 */__pycache__
 temp.py
+*.psd
+temp.json
+telegram/chats_data.json
