@@ -381,9 +381,9 @@ class UserBot:
         
         try:
             media_group = await self.app.get_media_group(mes.chat.id, mes.id)
-            mg_caption = media_group[0].caption
-            if mg_caption:
-                return mg_caption
+            for mes in media_group:
+                if mes.caption:
+                    return mes.caption
         except ValueError: # не нашлось подписи и медиагруппы у данного сообщения
             media_group = None
         
