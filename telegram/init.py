@@ -402,6 +402,8 @@ class UserBot:
             next_mes_ind = ids_and_chats.index((media_group[-1].id, media_group[-1].chat.id)) - 1
             prev_mes_ind = ids_and_chats.index((media_group[0].id, media_group[0].chat.id)) + 1
 
+        print(next_mes_ind, ind)
+        print(messages[next_mes_ind].id, messages[ind].id)
         next_mes = messages[next_mes_ind]
         if prev_mes_ind != len(messages):
             prev_mes = messages[prev_mes_ind]
