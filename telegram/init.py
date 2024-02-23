@@ -367,7 +367,7 @@ class UserBot:
         
     async def __get_caption(self, mes: Message | None = None, messages: list[Message] | None = None, ind: int | None = None, try_num: int = 1):
         if try_num >= 100:
-            return None
+            return
         if mes is None and (messages is None or ind is None):
             raise ValueError("mes or messages and ind must be filled")
         if mes is None:
@@ -390,8 +390,11 @@ class UserBot:
         if messages is None and ind is None:
             raise ValueError("caption was not found. messages and ind must be filled")
 
-        ind = await self.__get_new_message_ind(messages, ind, media_group)
-        return await self.__get_caption(None, messages, ind, try_num + 1)
+        try:
+            ind = await self.__get_new_message_ind(messages, ind, media_group)
+            return await self.__get_caption(None, messages, ind, try_num + 1)
+        except IndexError:
+            return
         
     async def __get_new_message_ind(self, messages: list[Message], ind: int, media_group: list[Message] | None = None):
         if media_group is None:
@@ -402,8 +405,6 @@ class UserBot:
             next_mes_ind = ids_and_chats.index((media_group[-1].id, media_group[-1].chat.id)) - 1
             prev_mes_ind = ids_and_chats.index((media_group[0].id, media_group[0].chat.id)) + 1
 
-        print(next_mes_ind, ind)
-        print(messages[next_mes_ind].id, messages[ind].id)
         next_mes = messages[next_mes_ind]
         if prev_mes_ind != len(messages):
             prev_mes = messages[prev_mes_ind]
