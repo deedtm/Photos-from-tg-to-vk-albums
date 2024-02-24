@@ -276,6 +276,8 @@ class UserBot:
             seconds = int(err.__str__().split("of ", 1)[-1].split()[0])
             await asyncio.sleep(seconds)
             await self.__add_chat(chat_id)
+        except ValueError:
+            await self.app.send_message('me', bot_errors["not_joined"].format(chat_id=chat_id))
 
     async def __remove_chat(self, chat_id: int | str):
         chat = await self.app.get_chat(chat_id)
@@ -422,7 +424,14 @@ class UserBot:
             return prev_mes_ind
                     
     async def __get_chats(self):
-        return {chat_id: await self.app.get_chat(chat_id) for chat_id in self.chats_ids}
+        chats = {}
+        for chat_id in self.chats_ids:
+            try:
+                chats.setdefault(chat_id, await self.app.get_chat(chat_id))
+            except ValueError:
+                logging.warning(msg=f'User does not subscribed on {chat_id}')
+                chats.setdefault(chat_id, chat_id)
+        return chats
     
     async def __method_wrapper(self, func, is_async: bool, try_num: int = 1, **kwargs):
         try:
