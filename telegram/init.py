@@ -424,7 +424,7 @@ class UserBot:
     async def __get_chats(self):
         return {chat_id: await self.app.get_chat(chat_id) for chat_id in self.chats_ids}
     
-    async def __method_wrapper(self, func: function, is_async: bool, try_num: int = 1, **kwargs):
+    async def __method_wrapper(self, func, is_async: bool, try_num: int = 1, **kwargs):
         try:
             return await func(**kwargs) if is_async else func(**kwargs)
         except BaseException as e:
@@ -494,6 +494,3 @@ class UserBot:
         self.app.add_handler(
             MessageHandler(self.__rem_handler, filters.me & filters.regex("\\.rem .+"))
         )
-
-def function():
-    pass
