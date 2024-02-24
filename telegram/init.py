@@ -314,7 +314,8 @@ class UserBot:
             if not self.posted[chat_id]:
                 limit = 20
             else:
-                limit = abs([mes async for mes in self.app.get_chat_history(chat_id, 1)][0].id - self.posted[chat_id][0])
+                limit = abs([mes async for mes in self.app.get_chat_history(chat_id, 1)][0].id - max(self.posted[chat_id]))
+                print([mes async for mes in self.app.get_chat_history(chat_id, 1)][0].id, '-', max(self.posted[chat_id]), '=', limit)
                 if limit == 0:
                     logging.info(msg=f"No new messages in {chat_id}")
                     continue
@@ -391,7 +392,7 @@ class UserBot:
             raise ValueError("caption was not found. messages and ind must be filled")
 
         try:
-            ind = await self.__get_new_message_ind(messages, ind, media_group)
+            ind = await self.__method_wrapper(self.__get_new_message_ind, True, messages=messages, ind=ind, media_group=media_group)
             return await self.__get_caption(None, messages, ind, try_num + 1)
         except IndexError:
             return
@@ -411,6 +412,10 @@ class UserBot:
             mes = messages[ind]
             dif_prev = abs(mes.date - prev_mes.date)
             dif_next = abs(mes.date - next_mes.date)
+        try:
+            print(f"{prev_mes_ind >= len(messages)} or (({timedelta(0, 0, 0, 0, 1) > dif_next} or {dif_next < dif_prev}) and {next_mes_ind >= 0})")
+        except UnboundLocalError:
+            print(f"{prev_mes_ind >= len(messages)} or (None and {next_mes_ind >= 0})")
         if prev_mes_ind >= len(messages) or ((timedelta(0, 0, 0, 0, 1) > dif_next or dif_next < dif_prev) and next_mes_ind >= 0): # берем подпись в качестве след. сообщения
             return next_mes_ind
         else: # берем подпись в качестве пред. сообщения
@@ -418,7 +423,21 @@ class UserBot:
                     
     async def __get_chats(self):
         return {chat_id: await self.app.get_chat(chat_id) for chat_id in self.chats_ids}
-     
+    
+    async def __method_wrapper(self, func: function, is_async: bool, try_num: int = 1, **kwargs):
+        try:
+            return await func(**kwargs) if is_async else func(**kwargs)
+        except BaseException as e:
+            logging.error(msg=f"Try {try_num}:{e.__class__.__name__}:{e.__str__()}")
+            if try_num < 5:
+                logging.info(msg='Retrying in 30 seconds...')
+                await asyncio.sleep(30)
+                return await self.__method_wrapper(func, is_async, try_num + 1, **kwargs)
+            else:
+                args = ', '.join([k for k in kwargs.keys()])
+                logging.info(msg=f"Out of tries. Skipping {func.__name__}({args})")
+
+        
     def __get_chats_data(self) -> dict[str, dict[int, int]]:
         with open('telegram/chats_data.json') as f:
             return json.load(f)
@@ -475,4 +494,6 @@ class UserBot:
         self.app.add_handler(
             MessageHandler(self.__rem_handler, filters.me & filters.regex("\\.rem .+"))
         )
-        
+
+def function():
+    pass
