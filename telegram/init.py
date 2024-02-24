@@ -315,7 +315,7 @@ class UserBot:
                 limit = 20
             else:
                 limit = abs([mes async for mes in self.app.get_chat_history(chat_id, 1)][0].id - max(self.posted[chat_id]))
-                print([mes async for mes in self.app.get_chat_history(chat_id, 1)][0].id, '-', max(self.posted[chat_id]), '=', limit)
+                # print([mes async for mes in self.app.get_chat_history(chat_id, 1)][0].id, '-', max(self.posted[chat_id]), '=', limit)
                 if limit == 0:
                     logging.info(msg=f"No new messages in {chat_id}")
                     continue
@@ -412,10 +412,10 @@ class UserBot:
             mes = messages[ind]
             dif_prev = abs(mes.date - prev_mes.date)
             dif_next = abs(mes.date - next_mes.date)
-        try:
-            print(f"{prev_mes_ind >= len(messages)} or (({timedelta(0, 0, 0, 0, 1) > dif_next} or {dif_next < dif_prev}) and {next_mes_ind >= 0})")
-        except UnboundLocalError:
-            print(f"{prev_mes_ind >= len(messages)} or (None and {next_mes_ind >= 0})")
+        # try:
+        #     print(f"{prev_mes_ind >= len(messages)} or (({timedelta(0, 0, 0, 0, 1) > dif_next} or {dif_next < dif_prev}) and {next_mes_ind >= 0})")
+        # except UnboundLocalError:
+        #     print(f"{prev_mes_ind >= len(messages)} or (None and {next_mes_ind >= 0})")
         if prev_mes_ind >= len(messages) or ((timedelta(0, 0, 0, 0, 1) > dif_next or dif_next < dif_prev) and next_mes_ind >= 0): # берем подпись в качестве след. сообщения
             return next_mes_ind
         else: # берем подпись в качестве пред. сообщения
