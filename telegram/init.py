@@ -455,7 +455,7 @@ class UserBot:
         try:
             # print(f"{prev_mes_ind >= len(messages)} or (({timedelta(0, 0, 0, 0, 1) > dif_next} or {dif_next < dif_prev}) and {next_mes_ind >= 0})")
             is_fits_err = (
-                timedelta(0, 0, 0, 0, 1) > dif_next or dif_next < dif_prev
+                timedelta(0, 0, 0, 0, 2) > dif_next or dif_next < dif_prev
             ) # подходит под погрешность 
             is_fits_video_err = (
                 next_mes.media == MessageMediaType.VIDEO
