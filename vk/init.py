@@ -82,7 +82,7 @@ class VkAlbum:
             self.__upload_photo_wrapper(album_id, photo, caption)            
             time.sleep(1.5)
             i += 1
-            logging.info(f"Uploaded {i}/{photos_amount}...")
+            logging.info(f"Uploaded {i}/{photos_amount}")
                 
 
     def get_albums(self):
