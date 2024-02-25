@@ -473,7 +473,7 @@ class UserBot:
         for chat_id in self.chats_ids:
             try:
                 chats.setdefault(chat_id, await self.app.get_chat(chat_id))
-            except ValueError:
+            except (bad_request_400.ChannelInvalid, bad_request_400.ChatInvalid, bad_request_400.ChatIdInvalid):
                 logging.warning(msg=f"User did not subscribed on {chat_id}")
                 chats.setdefault(chat_id, chat_id)
         return chats
