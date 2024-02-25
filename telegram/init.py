@@ -63,6 +63,7 @@ class UserBot:
     async def __chats_handler(self, client: Client, msg: Message):
         if None in self.chats.values():
             self.chats = await self.__get_chats()
+        print(self.chats)
         chats_descs = utils.get_chats_descs(self.chats.values())
         try:
             await msg.edit(
