@@ -63,7 +63,6 @@ class UserBot:
     async def __chats_handler(self, client: Client, msg: Message):
         if None in self.chats.values():
             self.chats = await self.__get_chats()
-        print(self.chats)
         chats_descs = utils.get_chats_descs(self.chats.values())
         try:
             await msg.edit(
@@ -476,7 +475,6 @@ class UserBot:
                 chats.setdefault(chat_id, await self.app.get_chat(chat_id))
             except (bad_request_400.ChannelInvalid, bad_request_400.ChatInvalid, bad_request_400.ChatIdInvalid):
                 logging.warning(msg=f"User did not subscribed on {chat_id}")
-                chats.setdefault(chat_id, chat_id)
         return chats
 
     async def __method_wrapper(self, func, is_async: bool, try_num: int = 1, **kwargs):
