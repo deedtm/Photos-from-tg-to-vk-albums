@@ -452,17 +452,19 @@ class UserBot:
             mes = messages[ind]
             dif_prev = abs(mes.date - prev_mes.date)
             dif_next = abs(mes.date - next_mes.date)
-        # try:
-        #     print(f"{prev_mes_ind >= len(messages)} or (({timedelta(0, 0, 0, 0, 1) > dif_next} or {dif_next < dif_prev}) and {next_mes_ind >= 0})")
-        # except UnboundLocalError:
-        #     print(f"{prev_mes_ind >= len(messages)} or (None and {next_mes_ind >= 0})")
-        is_fits_err = (
-            timedelta(0, 0, 0, 0, 1) > dif_next or dif_next < dif_prev
-        ) # подходит под погрешность 
-        is_fits_video_err = (
-            next_mes.media == MessageMediaType.VIDEO
-            and timedelta(0, 30, 0, 0, 7) > dif_next
-        ) # подходит под погрешность видео
+        try:
+            # print(f"{prev_mes_ind >= len(messages)} or (({timedelta(0, 0, 0, 0, 1) > dif_next} or {dif_next < dif_prev}) and {next_mes_ind >= 0})")
+            is_fits_err = (
+                timedelta(0, 0, 0, 0, 1) > dif_next or dif_next < dif_prev
+            ) # подходит под погрешность 
+            is_fits_video_err = (
+                next_mes.media == MessageMediaType.VIDEO
+                and timedelta(0, 30, 0, 0, 7) > dif_next
+            ) # подходит под погрешность видео
+        except UnboundLocalError:
+            # print(f"{prev_mes_ind >= len(messages)} or (None and {next_mes_ind >= 0})")
+            is_fits_err, is_fits_video_err = False, False
+
         if prev_mes_ind >= len(messages) or ((is_fits_err or is_fits_video_err) and next_mes_ind >= 0):  # берем подпись в качестве след. сообщения
             return next_mes_ind
         else:  # берем подпись в качестве пред. сообщения
