@@ -308,7 +308,7 @@ class UserBot:
             logging.error(err)
             self.is_started = False
             await self.app.send_message("me", bot_errors["access_denied"])
-
+    
     async def __repost_to_album(self):
         logging.info("Started reposting")
         posted = self.__get_posted()
@@ -329,6 +329,7 @@ class UserBot:
                 if limit == 0:
                     logging.info(msg=f"No new messages in {chat_id}")
                     continue
+                logging.info(msg=f"Found {limit} messages in {chat_id}")
             messages: list[Message] = [
                 mes
                 async for mes in self.app.get_chat_history(chat_id, limit)
@@ -341,6 +342,8 @@ class UserBot:
             messages = await self.__refill_messages(messages)
             photos_data = await self.__get_photos_data(messages)
             self.vk_album.add_photos(album_id, photos_data)
+            photos_data.clear()
+            del photos_data
             logging.info(f"Uploaded {chat_id}")
         logging.info(msg="Finished reposting")
 
@@ -373,6 +376,7 @@ class UserBot:
         posted = self.__get_posted()
         posted[str(mes.chat.id)].extend(ids)
         self.__save_posted(posted)
+        del posted, ids, caption, photo
         return data
 
     async def __get_photo_caption(self, ind: int, messages: list[Message]):
@@ -382,8 +386,9 @@ class UserBot:
             msg = f"Not found caption for {mes.id}"
             caption = ""
         else:
-            msg = f"Found caption for {mes.id}:\n{caption}"
+            msg = f"Found caption for {mes.id}"
         logging.info(msg=msg)
+        del msg
         return caption
 
     async def __get_caption(
@@ -399,7 +404,7 @@ class UserBot:
             raise ValueError("mes or messages and ind must be filled")
         if mes is None:
             mes = messages[ind]
-        logging.info(f"Try {try_num} to get caption for {mes.id} ({mes.chat.id})...")
+        logging.debug(f"Try {try_num} to get caption for {mes.id} ({mes.chat.id})...")
 
         if mes.text:
             return mes.text

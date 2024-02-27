@@ -11,7 +11,6 @@ class VkAlbum:
     def __init__(self, token: str, retry_seconds: int, anti_flood_tries: int):
         self.session = vk_api.VkApi(token=token)
         self.vk = self.session.get_api()
-        self.upload = vk_api.VkUpload(self.vk)
         self.login_user = self.__get_login_user()
         self.login_user_id = self.login_user["id"]
         logging.info(
@@ -31,6 +30,8 @@ class VkAlbum:
         image = Image.open(photo)
         image.save(photo, format="jpeg")
         photo.seek(0)
+        image.close()
+        del image
 
         return self.__upload_photo(album_id, photo, caption)
         # return self.__call_vk_method(
@@ -49,7 +50,8 @@ class VkAlbum:
             hash=res["hash"],
             caption=caption[:2048],
         )
-        
+        del photo, res, upload_url
+    
     def __upload_photo_wrapper(self, album_id: int, photo: BytesIO, caption: str):
         try:
             self.add_photo(album_id, photo, caption)
@@ -83,7 +85,7 @@ class VkAlbum:
             time.sleep(1.5)
             i += 1
             logging.info(f"Uploaded {i}/{photos_amount}")
-                
+        del i, photos_amount
 
     def get_albums(self):
         return self.__call_vk_method(

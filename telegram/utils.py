@@ -35,3 +35,5 @@ def format_interval(seconds: int):
     else:
         if formatted.minute != 0:
             return formatted.strftime("%#M мин.")
+        else:
+            return formatted.strftime("%#S сек.")

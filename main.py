@@ -1,7 +1,7 @@
 import logging
 from telegram.init import UserBot
 from configparser import ConfigParser
-from vk.init import VkAlbum
+from vk.init import VkAlbum     
 
 config = ConfigParser()
 config.read("config.ini")
