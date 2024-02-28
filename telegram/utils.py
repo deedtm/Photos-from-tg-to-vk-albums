@@ -37,3 +37,7 @@ def format_interval(seconds: int):
             return formatted.strftime("%#M мин.")
         else:
             return formatted.strftime("%#S сек.")
+
+
+def get_now():
+    return datetime.now().strftime("[%H:%M:%S]")

@@ -11,11 +11,15 @@ from pyrogram.handlers.message_handler import MessageHandler
 from pyrogram.errors.exceptions import bad_request_400, flood_420
 from vk.errors import AccessDenied
 from vk.init import VkAlbum
+from memory_profiler import profile
 
 with open("telegram/commands.json", "r") as f:
     bot_texts: dict = json.load(f)
 with open("telegram/errors.json") as f:
     bot_errors: dict = json.load(f)
+if not 'memory_logs.txt' in os.listdir():
+    with open("memory_logs.txt", 'w'): pass
+memory_logs = open('memory_logs.txt', 'a')
 
 
 class UserBot:
@@ -309,7 +313,9 @@ class UserBot:
             self.is_started = False
             await self.app.send_message("me", bot_errors["access_denied"])
     
+    @profile(stream=memory_logs)
     async def __repost_to_album(self):
+        memory_logs.write(f'\n{utils.get_now()}\n')
         logging.info("Started reposting")
         posted = self.__get_posted()
         for chat_id in self.chats:
