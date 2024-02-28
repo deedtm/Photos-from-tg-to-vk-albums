@@ -18,6 +18,8 @@ with open("telegram/commands.json", "r") as f:
 with open("telegram/errors.json") as f:
     bot_errors: dict = json.load(f)
 
+memory_logs = open("memory_logs.txt", 'a')
+memory_logs.close()
 
 class UserBot:
     def __init__(
