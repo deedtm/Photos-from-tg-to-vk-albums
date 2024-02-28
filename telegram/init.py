@@ -19,7 +19,6 @@ with open("telegram/errors.json") as f:
     bot_errors: dict = json.load(f)
 
 memory_logs = open("memory_logs.txt", 'a')
-memory_logs.close()
 
 class UserBot:
     def __init__(
@@ -303,13 +302,11 @@ class UserBot:
     async def __start_reposting(self):
         logging.info(msg=f"Reposting was started")
         try:
-            while self.is_started:
-                memory_logs = open('memory_logs.txt', 'a')
+            while self.is_started:              
                 await asyncio.gather(
                     self.__repost_to_album(),
                     asyncio.sleep(self.interval),
                 )
-                memory_logs.close()
             logging.info(msg=f"Reposting was stopped")
         except AccessDenied as err:
             logging.error(err)
