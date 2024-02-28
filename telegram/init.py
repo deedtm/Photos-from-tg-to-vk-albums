@@ -18,6 +18,8 @@ with open("telegram/commands.json", "r") as f:
 with open("telegram/errors.json") as f:
     bot_errors: dict = json.load(f)
 
+if 'memory_logs.txt' not in os.listdir():
+    with open("memory_logs.txt", 'w'): pass
 memory_logs = open("memory_logs.txt", 'a')
 
 class UserBot:
@@ -34,8 +36,6 @@ class UserBot:
     ):
         if "chats_data.json" not in os.listdir("telegram"):
             self.__update_chats_data({"posted": [], "albums_ids": []})
-        if 'memory_logs.txt' not in os.listdir():
-            with open("memory_logs.txt", 'w'): pass
         self.chats_ids = chats_ids
         self.chats = {chat_id: None for chat_id in chats_ids}
         self.albums_ids = self.__get_albums_ids()
