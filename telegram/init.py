@@ -17,9 +17,6 @@ with open("telegram/commands.json", "r") as f:
     bot_texts: dict = json.load(f)
 with open("telegram/errors.json") as f:
     bot_errors: dict = json.load(f)
-if not 'memory_logs.txt' in os.listdir():
-    with open("memory_logs.txt", 'w'): pass
-memory_logs = open('memory_logs.txt', 'a')
 
 
 class UserBot:
@@ -36,6 +33,8 @@ class UserBot:
     ):
         if "chats_data.json" not in os.listdir("telegram"):
             self.__update_chats_data({"posted": [], "albums_ids": []})
+        if 'memory_logs.txt' not in os.listdir():
+            with open("memory_logs.txt", 'w'): pass
         self.chats_ids = chats_ids
         self.chats = {chat_id: None for chat_id in chats_ids}
         self.albums_ids = self.__get_albums_ids()
@@ -303,10 +302,12 @@ class UserBot:
         logging.info(msg=f"Reposting was started")
         try:
             while self.is_started:
+                memory_logs = open('memory_logs.txt', 'a')
                 await asyncio.gather(
                     self.__repost_to_album(),
                     asyncio.sleep(self.interval),
                 )
+                memory_logs.close()
             logging.info(msg=f"Reposting was stopped")
         except AccessDenied as err:
             logging.error(err)
