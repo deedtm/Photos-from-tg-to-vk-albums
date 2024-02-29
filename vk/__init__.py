@@ -60,7 +60,9 @@ class VkAlbum:
             hash=res["hash"],
             caption=caption[:2048],
         )
-        del photo, res, upload_url
+        del photo
+        del res
+        del upload_url
     
     @profile(stream=memory_logs)
     def __upload_photo_wrapper(self, album_id: int, photo: BytesIO, caption: str):

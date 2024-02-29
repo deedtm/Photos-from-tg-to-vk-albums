@@ -377,7 +377,8 @@ class UserBot:
         posted = self.__get_posted()
         posted[str(mes.chat.id)].extend(ids)
         self.__save_posted(posted)
-        del posted, ids
+        del posted
+        del ids
         try:
             del caption
         except UnboundLocalError: pass
