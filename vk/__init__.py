@@ -101,7 +101,8 @@ class VkAlbum:
             time.sleep(1.5)
             i += 1
             logging.info(f"Uploaded {i}/{photos_amount}")
-        del i, photos_amount
+        del i
+        del photos_amount
 
     def get_albums(self):
         return self.__call_vk_method(
