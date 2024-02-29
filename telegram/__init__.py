@@ -377,7 +377,13 @@ class UserBot:
         posted = self.__get_posted()
         posted[str(mes.chat.id)].extend(ids)
         self.__save_posted(posted)
-        del posted, ids, caption, photo
+        del posted, ids
+        try:
+            del caption
+        except UnboundLocalError: pass
+        try:
+            del photo
+        except UnboundLocalError: pass
         return data
 
     async def __get_photo_caption(self, ind: int, messages: list[Message]):
