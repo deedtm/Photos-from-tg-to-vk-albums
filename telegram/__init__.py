@@ -347,7 +347,9 @@ class UserBot:
             del photos_data
             logging.info(f"Uploaded {chat_id}")
         if len(posted) > 10:
+            logging.info(msg="Collecting the garbage...")
             gc.collect() 
+            logging.info(msg='The garbage was collected')
         posted.clear()
         del posted
         logging.info(msg="Finished reposting")
