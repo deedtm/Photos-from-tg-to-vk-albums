@@ -35,11 +35,9 @@ class VkAlbum:
     @profile(stream=memory_logs)
     def add_photo(self, album_id: int, photo: BytesIO, caption: str):
         memory_logs.write(f'\n{utils.get_now()}\n')
-        image = Image.open(photo)
-        image.save(photo, format="jpeg")
+        with Image.open(photo) as image:
+            image.save(photo, format="jpeg")
         photo.seek(0)
-        image.close()
-        del image
 
         return self.__upload_photo(album_id, photo, caption)
         # return self.__call_vk_method(
@@ -51,17 +49,18 @@ class VkAlbum:
         memory_logs.write(f'\n{utils.get_now()}\n')
         upload_url = self.vk.photos.getUploadServer(album_id=album_id)["upload_url"]
         files = {"file1": photo}
-        res = requests.post(upload_url, files=files).json()
+        with requests.post(upload_url, files=files) as res:
+            data = res.json()
 
         self.vk.photos.save(
             album_id=album_id,
-            server=res["server"],
-            photos_list=res["photos_list"],
-            hash=res["hash"],
+            server=data["server"],
+            photos_list=data["photos_list"],
+            hash=data["hash"],
             caption=caption[:2048],
         )
         del photo
-        del res
+        del data
         del upload_url
     
     @profile(stream=memory_logs)
