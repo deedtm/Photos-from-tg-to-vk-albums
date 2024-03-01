@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import gc
 import telegram.utils as utils
 import logging
 from datetime import timedelta
@@ -45,6 +46,7 @@ class UserBot:
             phone_number=phone_number,
             password=password,
         )
+        gc.enable()
         self.__add_handlers()
 
     async def __help_handler(self, client: Client, msg: Message):
@@ -344,6 +346,8 @@ class UserBot:
             photos_data.clear()
             del photos_data
             logging.info(f"Uploaded {chat_id}")
+        if len(posted) > 10:
+            gc.collect() 
         posted.clear()
         del posted
         logging.info(msg="Finished reposting")
