@@ -36,7 +36,7 @@ class UserBot:
         vk_album: VkAlbum,
     ):
         if "chats_data.json" not in os.listdir("telegram"):
-            self.__update_chats_data({"posted": [], "albums_ids": []})
+            self.__update_chats_data({"posted": {}, "albums_ids": {}})
         self.chats_ids = chats_ids
         self.chats = {chat_id: None for chat_id in chats_ids}
         self.albums_ids = self.__get_albums_ids()
