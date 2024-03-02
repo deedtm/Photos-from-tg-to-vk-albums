@@ -12,12 +12,17 @@ from pyrogram.handlers.message_handler import MessageHandler
 from pyrogram.errors.exceptions import bad_request_400, flood_420
 from vk.errors import AccessDenied
 from vk import VkAlbum
+from memory_profiler import profile
+
+if 'memory_logs.txt' not in os.listdir():
+    with open("memory_logs.txt", 'w'): pass
+memory_logs = open("memory_logs.txt", 'a')
 
 with open("telegram/commands.json", "r") as f:
     bot_texts: dict = json.load(f)
 with open("telegram/errors.json") as f:
     bot_errors: dict = json.load(f)
-
+    
 class UserBot:
     def __init__(
         self,
@@ -296,6 +301,7 @@ class UserBot:
         posted.pop(str(chat.id))
         self.__save_posted(posted)
 
+    @profile(stream=memory_logs)
     async def __start_reposting(self):
         logging.info(msg=f"Reposting was started")
         try:

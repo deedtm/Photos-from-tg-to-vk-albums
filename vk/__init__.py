@@ -2,16 +2,16 @@ import time
 import vk_api
 import requests
 import logging
-import os
+# import os
 import telegram.utils as utils
 from io import BytesIO
 from PIL import Image
 from vk.errors import AccessDenied
-from memory_profiler import profile
+# from memory_profiler import profile
 
-if 'memory_logs.txt' not in os.listdir():
-    with open("memory_logs.txt", 'w'): pass
-memory_logs = open("memory_logs.txt", 'a')
+# if 'memory_logs.txt' not in os.listdir():
+#     with open("memory_logs.txt", 'w'): pass
+# memory_logs = open("memory_logs.txt", 'a')
 
 class VkAlbum:
     def __init__(self, token: str, retry_seconds: int, anti_flood_tries: int):
@@ -32,9 +32,9 @@ class VkAlbum:
     def remove_album(self, album_id: int):
         return self.__call_vk_method(self.vk.photos.deleteAlbum, album_id=album_id)
 
-    @profile(stream=memory_logs)
+    # @profile(stream=memory_logs)
     def add_photo(self, album_id: int, photo: BytesIO, caption: str):
-        memory_logs.write(f'\n{utils.get_now()}\n')
+        # memory_logs.write(f'\n{utils.get_now()}\n')
         with Image.open(photo) as image:
             image.save(photo, format="jpeg")
         photo.seek(0)
@@ -44,9 +44,9 @@ class VkAlbum:
         #     self.upload.photo, album_id=album_id, photos=photo
         # )
 
-    @profile(stream=memory_logs)
+    # @profile(stream=memory_logs)
     def __upload_photo(self, album_id: int, photo: BytesIO, caption: str):
-        memory_logs.write(f'\n{utils.get_now()}\n')
+        # memory_logs.write(f'\n{utils.get_now()}\n')
         upload_url = self.vk.photos.getUploadServer(album_id=album_id)["upload_url"]
         files = {"file1": photo}
         with requests.post(upload_url, files=files) as res:
@@ -63,9 +63,9 @@ class VkAlbum:
         del data
         del upload_url
     
-    @profile(stream=memory_logs)
+    # @profile(stream=memory_logs)
     def __upload_photo_wrapper(self, album_id: int, photo: BytesIO, caption: str):
-        memory_logs.write(f'\n{utils.get_now()}\n')
+        # memory_logs.write(f'\n{utils.get_now()}\n')
         try:
             self.add_photo(album_id, photo, caption)
         except requests.exceptions.JSONDecodeError as err:
@@ -89,9 +89,9 @@ class VkAlbum:
             time.sleep(self.retry_seconds / 10)
             self.__upload_photo_wrapper(album_id, photo, caption)
 
-    @profile(stream=memory_logs)
+    # @profile(stream=memory_logs)
     def add_photos(self, album_id: int, photos_data: tuple[BytesIO, str]):
-        memory_logs.write(f'\n{utils.get_now()}\n')
+        # memory_logs.write(f'\n{utils.get_now()}\n')
         photos_amount = len(photos_data)
         logging.info(msg=f"Uploading {photos_amount} photos to {album_id}...")
         i = 0
