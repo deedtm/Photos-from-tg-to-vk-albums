@@ -4,6 +4,7 @@ import os
 import gc
 import telegram.utils as utils
 import logging
+from shutil import rmtree
 from datetime import timedelta
 from pyrogram import Client, filters
 from pyrogram.enums import MessageMediaType
@@ -12,11 +13,11 @@ from pyrogram.handlers.message_handler import MessageHandler
 from pyrogram.errors.exceptions import bad_request_400, flood_420
 from vk.errors import AccessDenied
 from vk import VkAlbum
-from memory_profiler import profile
+# from memory_profiler import profile
 
-if 'memory_logs.txt' not in os.listdir():
-    with open("memory_logs.txt", 'w'): pass
-memory_logs = open("memory_logs.txt", 'a')
+# if 'memory_logs.txt' not in os.listdir():
+#     with open("memory_logs.txt", 'w'): pass
+# memory_logs = open("memory_logs.txt", 'a')
 
 with open("telegram/commands.json", "r") as f:
     bot_texts: dict = json.load(f)
@@ -301,7 +302,7 @@ class UserBot:
         posted.pop(str(chat.id))
         self.__save_posted(posted)
 
-    @profile(stream=memory_logs)
+    # @profile(stream=memory_logs)
     async def __start_reposting(self):
         logging.info(msg=f"Reposting was started")
         try:
@@ -318,6 +319,8 @@ class UserBot:
     
     async def __repost_to_album(self):
         logging.info("Started reposting")
+        if 'photos' in os.listdir():
+            rmtree('photos')
         posted = self.__get_posted()
         for chat_id in self.chats:
             chat_id = str(chat_id)
@@ -379,23 +382,25 @@ class UserBot:
 
     async def __get_photos_data(self, messages: list[Message]):
         data = []
-        ids = []
+        last_mes_id = messages[0].id
         for ind, mes in enumerate(messages):
             if mes.photo:
                 caption = await self.__get_photo_caption(ind, messages)
-                photo = await self.app.download_media(mes, in_memory=True)
-                data.append((photo, caption))
-            ids.append(mes.id)
+                path_to_photo = await self.app.download_media(mes, f'photos/{mes.chat.id}/{mes.id}.jpeg')
+                data.append((path_to_photo, caption))
         posted = self.__get_posted()
-        posted[str(mes.chat.id)].extend(ids)
+        if len(posted[str(mes.chat.id)]) > 5:
+            posted[str(mes.chat.id)] = [last_mes_id]
+            logging.info(f'Cleared posted[{mes.chat.id}]') 
+        else: 
+            posted[str(mes.chat.id)].append(last_mes_id)
         self.__save_posted(posted)
         del posted
-        del ids
         try:
             del caption
         except UnboundLocalError: pass
         try:
-            del photo
+            del path_to_photo
         except UnboundLocalError: pass
         return data
 
