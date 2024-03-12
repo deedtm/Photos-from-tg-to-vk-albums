@@ -10,7 +10,7 @@ from pyrogram import Client, filters
 from pyrogram.enums import MessageMediaType
 from pyrogram.types import Message, Chat
 from pyrogram.handlers.message_handler import MessageHandler
-from pyrogram.errors.exceptions import bad_request_400, flood_420
+from pyrogram.errors.exceptions import bad_request_400, flood_420, internal_server_error_500
 from vk.errors import AccessDenied
 from vk import VkAlbum
 # from memory_profiler import profile
@@ -316,6 +316,10 @@ class UserBot:
             logging.error(err)
             self.is_started = False
             await self.app.send_message("me", bot_errors["access_denied"])
+        except internal_server_error_500.ApiCallError as err:
+            logging.error(err)
+            self.is_started = False
+            await self.app.send_message("me", bot_errors['api_call'].format(error=err.__str__()))
     
     async def __repost_to_album(self):
         logging.info("Started reposting")
@@ -355,10 +359,6 @@ class UserBot:
             photos_data.clear()
             del photos_data
             logging.info(f"Uploaded {chat_id}")
-        if len(posted) > 10:
-            logging.info(msg="Collecting the garbage...")
-            gc.collect() 
-            logging.info(msg='The garbage was collected')
         posted.clear()
         del posted
         logging.info(msg="Finished reposting")
