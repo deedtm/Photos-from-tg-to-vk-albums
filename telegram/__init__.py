@@ -11,6 +11,7 @@ from pyrogram.enums import MessageMediaType
 from pyrogram.types import Message, Chat
 from pyrogram.handlers.message_handler import MessageHandler
 from pyrogram.errors.exceptions import bad_request_400, flood_420, internal_server_error_500
+from pyrogram.errors import exceptions
 from vk.errors import AccessDenied
 from vk import VkAlbum
 # from memory_profiler import profile
@@ -316,10 +317,10 @@ class UserBot:
             logging.error(err)
             self.is_started = False
             await self.app.send_message("me", bot_errors["access_denied"])
-        except internal_server_error_500.ApiCallError as err:
+        except exceptions.RPCError as err:
             logging.error(err)
             self.is_started = False
-            await self.app.send_message("me", bot_errors['api_call'].format(error=err.__str__()))
+            await self.app.send_message("me", bot_errors['rpc_error'].format(error=err.__str__()))
     
     async def __repost_to_album(self):
         logging.info("Started reposting")
