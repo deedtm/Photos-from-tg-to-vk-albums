@@ -71,7 +71,7 @@ class VkAlbum:
             self.__upload_photo(album_id, path_to_photo, caption)
         except requests.exceptions.JSONDecodeError as err:
             logging.error(msg=f"Failed to decode json. Retrying in {self.retry_seconds // 10} seconds...")
-            time.sleep(self.retry_seconds // 10)
+            time.sleep(self.retry_seconds / 10)
             self.__upload_photo_wrapper(album_id, path_to_photo, caption)
             
         except vk_api.exceptions.ApiError as err:
@@ -80,14 +80,14 @@ class VkAlbum:
                 logging.error(
                     msg=f"Failed to upload photo to album. Retrying in {self.retry_seconds // 10} seconds..."
                 )
-                time.sleep(self.retry_seconds // 10)
+                time.sleep(self.retry_seconds / 10)
                 self.__upload_photo_wrapper(album_id, path_to_photo, caption)
             else:
                 self.__api_error_handler(err, self.__upload_photo, 1, album_id=album_id, path_to_photo=path_to_photo, caption=caption)
         
         except BaseException as err:
-            logging.error(msg=f'{err.__class__.__name__}:{err}. Retrying in {self.retry_seconds // 1} seconds...')
-            time.sleep(self.retry_seconds / 10)
+            logging.error(msg=f'{err.__class__.__name__}:{err}. Retrying in {self.retry_seconds} seconds...')
+            time.sleep(self.retry_seconds)
             self.__upload_photo_wrapper(album_id, path_to_photo, caption)
 
     # @profile(stream=memory_logs)
@@ -97,7 +97,10 @@ class VkAlbum:
         logging.info(msg=f"Uploading {photos_amount} photos to {album_id}...")
         i = 0
         for path, caption in photos_data:
-            self.__upload_photo_wrapper(album_id, path, caption)            
+            try:
+                self.__upload_photo_wrapper(album_id, path, caption)            
+            except RecursionError:
+                logging.info(msg=f"Failed to upload photo {path} to {album_id}. Skipping")
             time.sleep(1.5)
             i += 1
             logging.info(f"Uploaded {i}/{photos_amount}")

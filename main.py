@@ -1,4 +1,5 @@
 import logging
+import sys
 from telegram import UserBot   
 from configparser import ConfigParser
 from vk import VkAlbum     
@@ -31,5 +32,8 @@ def main():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(0)
     

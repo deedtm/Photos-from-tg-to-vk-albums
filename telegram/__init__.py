@@ -462,13 +462,15 @@ class UserBot:
         self,
         messages: list[Message],
         ind: int,
+        ids_and_chats: list[tuple[int, int]] | None = None,
         media_group: list[Message] | None = None,
     ):
         if media_group is None:
             next_mes_ind = ind - 1
             prev_mes_ind = ind + 1
         else:
-            ids_and_chats = [(mes.id, mes.chat.id) for mes in messages]
+            if not ids_and_chats:
+                ids_and_chats = [(mes.id, mes.chat.id) for mes in messages]
             next_mes_ind = (
                 ids_and_chats.index((media_group[-1].id, media_group[-1].chat.id)) - 1
             )
@@ -515,8 +517,13 @@ class UserBot:
         except BaseException as e:
             logging.error(msg=f"Try {try_num}:{e.__class__.__name__}:{e.__str__()}")
             retry_seconds = (
-                self.retry_seconds if e.__class__.__name__ != "IndexError" else 1
+                self.retry_seconds if e.__class__ not in [IndexError, ValueError] else 1
             )
+            if e.__class__ is ValueError:
+                messages = kwargs['messages']
+                ids_and_chats = [(mes.id, mes.chat.id) for mes in messages]
+                kwargs.setdefault('ids_and_chats', ids_and_chats)
+
             if try_num < 5:
                 logging.info(msg=f"Retrying in {retry_seconds} seconds...")
                 await asyncio.sleep(retry_seconds)
