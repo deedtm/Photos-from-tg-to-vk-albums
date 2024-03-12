@@ -27,7 +27,7 @@ class VkAlbum:
         self.anti_flood_tries = anti_flood_tries
 
     def create_album(self, title: str) -> dict[str]:
-        return self.__call_vk_method(self.vk.photos.createAlbum, title=title)
+        return self.__call_vk_method(self.vk.photos.createAlbum, title=title, privacy=3)
 
     def remove_album(self, album_id: int):
         return self.__call_vk_method(self.vk.photos.deleteAlbum, album_id=album_id)
