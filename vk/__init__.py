@@ -15,6 +15,9 @@ from vk.errors import AccessDenied
 
 class VkAlbum:
     def __init__(self, token: str, retry_seconds: int, anti_flood_tries: int):
+        self.retry_seconds = retry_seconds
+        self.anti_flood_tries = anti_flood_tries
+        
         self.session = vk_api.VkApi(token=token)
         self.vk = self.session.get_api()
         self.login_user = self.__get_login_user()
@@ -22,9 +25,6 @@ class VkAlbum:
         logging.info(
             msg=f"Logged in VK as {self.login_user['first_name']} {self.login_user['last_name']} @id{self.login_user_id}"
         )
-
-        self.retry_seconds = retry_seconds
-        self.anti_flood_tries = anti_flood_tries
 
     def create_album(self, title: str) -> dict[str]:
         return self.__call_vk_method(self.vk.photos.createAlbum, title=title, privacy=3)
