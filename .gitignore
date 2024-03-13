@@ -6,3 +6,4 @@ temp.py
 *.psd
 temp.json
 telegram/chats_data.json
+memory_logs.txt
