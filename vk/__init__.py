@@ -81,10 +81,14 @@ class VkAlbum:
                     msg=f"Failed to upload photo to album. Retrying in {self.retry_seconds // 10} seconds..."
                 )
                 time.sleep(self.retry_seconds / 10)
-                self.__upload_photo_wrapper(album_id, path_to_photo, caption)
+            elif '[200]' in err_text:
+                logging.error(msg=f"Access denied while uploading photo. Retrying in {self.retry_seconds // 5} seconds...")
+                time.sleep(self.retry_seconds / 5)
             else:
-                self.__api_error_handler(err, self.__upload_photo, 1, album_id=album_id, path_to_photo=path_to_photo, caption=caption)
-        
+                return self.__api_error_handler(err, self.__upload_photo, 1, album_id=album_id, path_to_photo=path_to_photo, caption=caption)
+                
+            self.__upload_photo_wrapper(album_id, path_to_photo, caption)
+
         except BaseException as err:
             logging.error(msg=f'{err.__class__.__name__}:{err}. Retrying in {self.retry_seconds} seconds...')
             time.sleep(self.retry_seconds)
