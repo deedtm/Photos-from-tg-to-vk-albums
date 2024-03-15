@@ -308,8 +308,8 @@ class UserBot:
         logging.info(msg=f"Reposting was started")
         try:
             while self.is_started:
-                self.__repost_to_album()
-                asyncio.sleep(self.interval)
+                await self.__repost_to_album()
+                await asyncio.sleep(self.interval)
             logging.info(msg=f"Reposting was stopped")
         except exceptions.RPCError as err:
             logging.error(err)
