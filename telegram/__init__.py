@@ -307,16 +307,10 @@ class UserBot:
     async def __start_reposting(self):
         logging.info(msg=f"Reposting was started")
         try:
-            while self.is_started:              
-                await asyncio.gather(
-                    self.__repost_to_album(),
-                    asyncio.sleep(self.interval),
-                )
+            while self.is_started:
+                self.__repost_to_album()
+                asyncio.sleep(self.interval)
             logging.info(msg=f"Reposting was stopped")
-        except AccessDenied as err:
-            logging.error(err)
-            self.is_started = False
-            await self.app.send_message("me", bot_errors["access_denied"])
         except exceptions.RPCError as err:
             logging.error(err)
             self.is_started = False
