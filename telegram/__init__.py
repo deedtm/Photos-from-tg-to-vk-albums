@@ -1,7 +1,6 @@
 import asyncio
 import json
 import os
-import gc
 import telegram.utils as utils
 import logging
 from shutil import rmtree
@@ -10,10 +9,13 @@ from pyrogram import Client, filters
 from pyrogram.enums import MessageMediaType
 from pyrogram.types import Message, Chat
 from pyrogram.handlers.message_handler import MessageHandler
-from pyrogram.errors.exceptions import bad_request_400, flood_420, internal_server_error_500
+from pyrogram.errors.exceptions import (
+    bad_request_400,
+    flood_420,
+)
 from pyrogram.errors import exceptions
-from vk.errors import AccessDenied
 from vk import VkAlbum
+
 # from memory_profiler import profile
 
 # if 'memory_logs.txt' not in os.listdir():
@@ -24,7 +26,8 @@ with open("telegram/commands.json", "r") as f:
     bot_texts: dict = json.load(f)
 with open("telegram/errors.json") as f:
     bot_errors: dict = json.load(f)
-    
+
+
 class UserBot:
     def __init__(
         self,
@@ -38,10 +41,11 @@ class UserBot:
         vk_album: VkAlbum,
     ):
         if "chats_data.json" not in os.listdir("telegram"):
-            self.__update_chats_data({"posted": {}, "albums_ids": {}})
+            self.__update_chats_data({"last": [], "posted": {}, "albums_ids": {}})
         self.chats_ids = chats_ids
         self.chats = {chat_id: None for chat_id in chats_ids}
         self.albums_ids = self.__get_albums_ids()
+        self.handlers_funcs = self.__get_handlers_funcs()
         self.interval = interval
         self.vk_album = vk_album
         self.retry_seconds = 30
@@ -53,69 +57,91 @@ class UserBot:
             phone_number=phone_number,
             password=password,
         )
-        gc.enable()
-        self.__add_handlers()
+        self.app.add_handler(
+            MessageHandler(self.__handler_wrapper, filters.me)
+        )
+
+    def __get_handler_by_text(self, text: str):
+        command = text.split()[0][1:]
+        return self.handlers_funcs[command]
+
+    async def __handler_wrapper(self, client: Client, msg: Message):
+        try:
+            handler = self.__get_handler_by_text(msg.text)
+            kwargs = await handler(client, msg)  # handler call
+
+        except flood_420.FloodWait as err:
+            seconds = err.__str__().split("of ", 1)[-1].split()[0]
+            text = bot_errors["flood_wait"].format(seconds=seconds)
+            await self.app.send_message("me", text)
+            return
+
+        except exceptions.RPCError as err:
+            logging.error(err)
+            self.is_started = False
+            text = bot_errors["rpc_error"].format(error=err.__str__())
+            await self.app.send_message("me", text)
+            return
+
+        f_data = kwargs.pop("func_data") if "func_data" in kwargs else None
+        await msg.edit(**kwargs)
+
+        if not f_data:
+            return
+
+        f, is_async, f_kwargs = f_data["func"], f_data["is_async"], f_data["kwargs"]
+        if is_async:
+            await f(**f_kwargs)
+        else:
+            f(**f_kwargs)
 
     async def __help_handler(self, client: Client, msg: Message):
         commands = utils.get_commands_descs(bot_texts["descriptions"])
         interval = utils.format_interval(self.interval)
 
-        try:
-            await msg.edit(
-                bot_texts["help"].format(commands=commands, interval=interval)
-            )
-        except flood_420.FloodWait as err:
-            seconds = int(err.__str__().split("of ", 1)[-1].split()[0])
-            await msg.edit(bot_errors["flood_wait"].format(seconds=seconds))
+        text = bot_texts["help"].format(commands=commands, interval=interval)
+        kwargs = {"text": text}
+
+        return kwargs
 
     async def __chats_handler(self, client: Client, msg: Message):
         if None in self.chats.values():
             self.chats = await self.__get_chats()
+            
         chats_descs = utils.get_chats_descs(self.chats.values())
-        try:
-            await msg.edit(
-                bot_texts["chats"].format(chats=chats_descs),
-                disable_web_page_preview=True,
-            )
-        except flood_420.FloodWait as err:
-            seconds = int(err.__str__().split("of ", 1)[-1].split()[0])
-            await msg.edit(bot_errors["flood_wait"].format(seconds=seconds))
+
+        text = bot_texts["chats"].format(chats=chats_descs)
+        kwargs = {"text": text, "disable_web_page_preview": True}
+
+        return kwargs
 
     async def __start_handler(self, client: Client, msg: Message):
         if None in self.chats.values():
             self.chats = await self.__get_chats()
+
         if self.is_started:
-            try:
-                await msg.edit(bot_errors["already_started"])
-            except flood_420.FloodWait as err:
-                seconds = int(err.__str__().split("of ", 1)[-1].split()[0])
-                await msg.edit(bot_errors["flood_wait"].format(seconds=seconds))
-        else:
-            for chat in self.chats.values():
-                await self.__add_chat(chat=chat)
-            try:
-                self.is_started = True
-                await msg.edit(bot_texts["start"])
-                await self.__start_reposting()
-            except flood_420.FloodWait as err:
-                seconds = int(err.__str__().split("of ", 1)[-1].split()[0])
-                await msg.edit(bot_errors["flood_wait"].format(seconds=seconds))
+            text = bot_errors["already_started"]
+            return {"text": text}
+
+        for chat in self.chats.values():
+            await self.__add_chat(chat=chat)
+
+        self.is_started = True
+        text = bot_texts["start"]
+        func_data = {"func": self.__start_reposting, "is_async": True, "kwargs": {}}
+
+        return {"text": text, "func_data": func_data}
 
     async def __stop_handler(self, client: Client, msg: Message):
         if not self.is_started:
-            try:
-                await msg.edit(bot_errors["not_started"])
-            except flood_420.FloodWait as err:
-                seconds = int(err.__str__().split("of ", 1)[-1].split()[0])
-                await msg.edit(bot_errors["flood_wait"].format(seconds=seconds))
-        else:
-            try:
-                self.is_started = False
-                interval = utils.format_interval(self.interval)
-                await msg.edit(bot_texts["stop"].format(interval=interval))
-            except flood_420.FloodWait as err:
-                seconds = int(err.__str__().split("of ", 1)[-1].split()[0])
-                await msg.edit(bot_errors["flood_wait"].format(seconds=seconds))
+            text = bot_errors["not_started"]
+            return {"text": text}
+
+        self.is_started = False
+        interval = utils.format_interval(self.interval)
+
+        text = bot_texts["stop"].format(interval=interval)
+        return {"text": text}
 
     async def __interval_handler(self, client: Client, msg: Message):
         _, arg = tuple(msg.text.split(" ", 1))
@@ -123,24 +149,25 @@ class UserBot:
         self.interval = int(arg) * 60
         cur = utils.format_interval(self.interval)
 
-        await msg.edit(bot_texts["interval"].format(prev=prev, cur=cur))
+        text = bot_texts["interval"].format(prev=prev, cur=cur)
+        return {"text": text}
 
     async def __add_handler(self, client: Client, msg: Message):
         if None in self.chats.values():
             self.chats = await self.__get_chats()
+
         _, arg = tuple(msg.text.split(" ", 1))
+
         if not arg.startswith("@"):
-            async for mes in client.search_global(arg):
-                if mes.chat.title == arg:
-                    chat_id = mes.chat.id
-                    break
+            chat_id = await self.__get_chat_id_by_title(arg)
         else:
             usernames = arg.split()
             if len(usernames) > 1:
-                await msg.edit(await self.__multiple_add(usernames))
-                return
-            else:
-                chat_id = arg
+                text = await self.__multiple_add(usernames)
+                return {"text": text}
+
+            chat_id = arg
+
         try:
             await self.__add_chat(chat_id)
             logging.info(msg=f"Added new chat: {chat_id}")
@@ -151,11 +178,7 @@ class UserBot:
         except UnboundLocalError:
             text = bot_errors["invalid_argument"].format(arg=", ".join(arg.split()))
 
-        try:
-            await msg.edit(text)
-        except flood_420.FloodWait as err:
-            seconds = int(err.__str__().split("of ", 1)[-1].split()[0])
-            await msg.edit(bot_errors["flood_wait"].format(seconds=seconds))
+        return {"text": text}
 
     async def __multiple_add(self, usernames: list[str]):
         if None in self.chats.values():
@@ -191,17 +214,14 @@ class UserBot:
     async def __rem_handler(self, client: Client, msg: Message):
         _, arg = tuple(msg.text.split(" ", 1))
         if not arg.startswith("@"):
-            for mes in await client.search_global(arg):
-                if mes.chat.title == arg:
-                    chat_id = mes.chat.id
-                    break
+            chat_id = await self.__get_chat_id_by_title(arg)
         else:
             usernames = arg.split()
+
             if len(usernames) > 1:
-                await msg.edit(await self.__multiple_rem(usernames))
-                return
-            else:
-                chat_id = arg
+                text = await self.__multiple_rem(usernames)
+                return {"text": text}
+
             chat_id = arg
         try:
             await self.__remove_chat(chat_id)
@@ -214,11 +234,7 @@ class UserBot:
         except KeyError:
             text = bot_errors["not_found"].format(username=chat_id)
 
-        try:
-            await msg.edit(text)
-        except flood_420.FloodWait as err:
-            seconds = int(err.__str__().split("of ", 1)[-1].split()[0])
-            await msg.edit(bot_errors["flood_wait"].format(seconds=seconds))
+        return {"text": text}
 
     async def __multiple_rem(self, usernames: list[str]):
         successful = []
@@ -306,20 +322,17 @@ class UserBot:
     # @profile(stream=memory_logs)
     async def __start_reposting(self):
         logging.info(msg=f"Reposting was started")
-        try:
-            while self.is_started:
-                await self.__repost_to_album()
-                await asyncio.sleep(self.interval)
-            logging.info(msg=f"Reposting was stopped")
-        except exceptions.RPCError as err:
-            logging.error(err)
-            self.is_started = False
-            await self.app.send_message("me", bot_errors['rpc_error'].format(error=err.__str__()))
-    
+
+        while self.is_started:
+            await self.__repost_to_album()
+            await asyncio.sleep(self.interval)
+
+        logging.info(msg=f"Reposting was stopped")
+
     async def __repost_to_album(self):
         logging.info("Started reposting")
-        if 'photos' in os.listdir():
-            rmtree('photos')
+        if "photos" in os.listdir():
+            rmtree("photos")
         posted = self.__get_posted()
         for chat_id in self.chats:
             chat_id = str(chat_id)
@@ -381,22 +394,26 @@ class UserBot:
         for ind, mes in enumerate(messages):
             if mes.photo:
                 caption = await self.__get_photo_caption(ind, messages)
-                path_to_photo = await self.app.download_media(mes, f'photos/{mes.chat.id}/{mes.id}.jpeg')
+                path_to_photo = await self.app.download_media(
+                    mes, f"photos/{mes.chat.id}/{mes.id}.jpeg"
+                )
                 data.append((path_to_photo, caption))
         posted = self.__get_posted()
         if len(posted[str(mes.chat.id)]) > 5:
             posted[str(mes.chat.id)] = [last_mes_id]
-            logging.info(f'Cleared posted[{mes.chat.id}]') 
-        else: 
+            logging.info(f"Cleared posted[{mes.chat.id}]")
+        else:
             posted[str(mes.chat.id)].append(last_mes_id)
         self.__save_posted(posted)
         del posted
         try:
             del caption
-        except UnboundLocalError: pass
+        except UnboundLocalError:
+            pass
         try:
             del path_to_photo
-        except UnboundLocalError: pass
+        except UnboundLocalError:
+            pass
         return data
 
     async def __get_photo_caption(self, ind: int, messages: list[Message]):
@@ -483,16 +500,18 @@ class UserBot:
             # print(f"{prev_mes_ind >= len(messages)} or (({timedelta(0, 0, 0, 0, 1) > dif_next} or {dif_next < dif_prev}) and {next_mes_ind >= 0})")
             is_fits_err = (
                 timedelta(0, 0, 0, 0, 2) > dif_next or dif_next < dif_prev
-            ) # подходит под погрешность 
+            )  # подходит под погрешность
             is_fits_video_err = (
                 next_mes.media == MessageMediaType.VIDEO
                 and timedelta(0, 30, 0, 0, 7) > dif_next
-            ) # подходит под погрешность видео
+            )  # подходит под погрешность видео
         except UnboundLocalError:
             # print(f"{prev_mes_ind >= len(messages)} or (None and {next_mes_ind >= 0})")
             is_fits_err, is_fits_video_err = False, False
 
-        if prev_mes_ind >= len(messages) or ((is_fits_err or is_fits_video_err) and next_mes_ind >= 0):  # берем подпись в качестве след. сообщения
+        if prev_mes_ind >= len(messages) or (
+            (is_fits_err or is_fits_video_err) and next_mes_ind >= 0
+        ):  # берем подпись в качестве след. сообщения
             return next_mes_ind
         else:  # берем подпись в качестве пред. сообщения
             return prev_mes_ind
@@ -502,7 +521,11 @@ class UserBot:
         for chat_id in self.chats_ids:
             try:
                 chats.setdefault(chat_id, await self.app.get_chat(chat_id))
-            except (bad_request_400.ChannelInvalid, bad_request_400.ChatInvalid, bad_request_400.ChatIdInvalid):
+            except (
+                bad_request_400.ChannelInvalid,
+                bad_request_400.ChatInvalid,
+                bad_request_400.ChatIdInvalid,
+            ):
                 logging.warning(msg=f"User did not subscribed on {chat_id}")
         return chats
 
@@ -515,9 +538,9 @@ class UserBot:
                 self.retry_seconds if e.__class__ not in [IndexError, ValueError] else 1
             )
             if e.__class__ is ValueError:
-                messages = kwargs['messages']
+                messages = kwargs["messages"]
                 ids_and_chats = [(mes.id, mes.chat.id) for mes in messages]
-                kwargs.setdefault('ids_and_chats', ids_and_chats)
+                kwargs.setdefault("ids_and_chats", ids_and_chats)
 
             if try_num < 5:
                 logging.info(msg=f"Retrying in {retry_seconds} seconds...")
@@ -528,6 +551,11 @@ class UserBot:
             else:
                 args = ", ".join([k for k in kwargs.keys()])
                 logging.info(msg=f"Out of tries. Skipping {func.__name__}({args})")
+
+    async def __get_chat_id_by_title(self, title: str):
+        async for mes in self.app.search_global(title):
+            if mes.chat.title == title:
+                return mes.chat.id
 
     def __get_chats_data(self) -> dict[str, dict[int, int]]:
         with open("telegram/chats_data.json") as f:
@@ -561,27 +589,14 @@ class UserBot:
         data["albums_ids"] = albums_ids
         return albums_ids
 
-    def __add_handlers(self):
-        self.app.add_handler(
-            MessageHandler(self.__help_handler, filters.me & filters.regex("\\.help"))
-        )
-        self.app.add_handler(
-            MessageHandler(
-                self.__interval_handler, filters.me & filters.regex("\\.interval \d+")
-            )
-        )
-        self.app.add_handler(
-            MessageHandler(self.__start_handler, filters.me & filters.regex("\\.start"))
-        )
-        self.app.add_handler(
-            MessageHandler(self.__stop_handler, filters.me & filters.regex("\\.stop"))
-        )
-        self.app.add_handler(
-            MessageHandler(self.__chats_handler, filters.me & filters.regex("\\.chats"))
-        )
-        self.app.add_handler(
-            MessageHandler(self.__add_handler, filters.me & filters.regex("\\.add .+"))
-        )
-        self.app.add_handler(
-            MessageHandler(self.__rem_handler, filters.me & filters.regex("\\.rem .+"))
-        )
+    def __get_handlers_funcs(self):
+        return {
+            "help": self.__help_handler,
+            "interval": self.__interval_handler,
+            "start": self.__start_handler,
+            "stop": self.__stop_handler,
+            "chats": self.__chats_handler,
+            "add": self.__add_handler,
+            "rem": self.__rem_handler,
+        }
+        
