@@ -63,11 +63,13 @@ class UserBot:
 
     def __get_handler_by_text(self, text: str):
         command = text.split()[0][1:]
+        if command not in self.handlers_funcs: return
         return self.handlers_funcs[command]
 
     async def __handler_wrapper(self, client: Client, msg: Message):
         try:
             handler = self.__get_handler_by_text(msg.text)
+            if not handler: return
             kwargs = await handler(client, msg)  # handler call
 
         except flood_420.FloodWait as err:
