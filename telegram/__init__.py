@@ -9,18 +9,9 @@ from pyrogram import Client, filters
 from pyrogram.enums import MessageMediaType
 from pyrogram.types import Message, Chat
 from pyrogram.handlers.message_handler import MessageHandler
-from pyrogram.errors.exceptions import (
-    bad_request_400,
-    flood_420,
-)
+from pyrogram.errors.exceptions import bad_request_400, flood_420
 from pyrogram.errors import exceptions
 from vk import VkAlbum
-
-# from memory_profiler import profile
-
-# if 'memory_logs.txt' not in os.listdir():
-#     with open("memory_logs.txt", 'w'): pass
-# memory_logs = open("memory_logs.txt", 'a')
 
 with open("telegram/commands.json", "r") as f:
     bot_texts: dict = json.load(f)
@@ -35,15 +26,14 @@ class UserBot:
         api_hash: str,
         session_name: str,
         interval: int,
-        chats_ids: list[int],
         phone_number: str,
         password: str,
         vk_album: VkAlbum,
     ):
         if "chats_data.json" not in os.listdir("telegram"):
-            self.__update_chats_data({"last": [], "posted": {}, "albums_ids": {}})
-        self.chats_ids = chats_ids
-        self.chats = {chat_id: None for chat_id in chats_ids}
+            self.__update_chats_data({"active": [], "posted": {}, "albums_ids": {}})
+        self.chats_ids = self.__get_chats_data()['active']
+        self.chats = {chat_id: None for chat_id in self.chats_ids}
         self.albums_ids = self.__get_albums_ids()
         self.handlers_funcs = self.__get_handlers_funcs()
         self.interval = interval
@@ -57,19 +47,21 @@ class UserBot:
             phone_number=phone_number,
             password=password,
         )
-        self.app.add_handler(
-            MessageHandler(self.__handler_wrapper, filters.me)
-        )
+        self.app.add_handler(MessageHandler(self.__handler_wrapper, filters.me))
 
     def __get_handler_by_text(self, text: str):
         command = text.split()[0][1:]
-        if command not in self.handlers_funcs: return
+        if command not in self.handlers_funcs:
+            return
         return self.handlers_funcs[command]
 
     async def __handler_wrapper(self, client: Client, msg: Message):
+        if not msg.text:
+            return
         try:
             handler = self.__get_handler_by_text(msg.text)
-            if not handler: return
+            if not handler:
+                return
             kwargs = await handler(client, msg)  # handler call
 
         except flood_420.FloodWait as err:
@@ -109,7 +101,7 @@ class UserBot:
     async def __chats_handler(self, client: Client, msg: Message):
         if None in self.chats.values():
             self.chats = await self.__get_chats()
-            
+
         chats_descs = utils.get_chats_descs(self.chats.values())
 
         text = bot_texts["chats"].format(chats=chats_descs)
@@ -279,6 +271,7 @@ class UserBot:
             is_added = False
             if chat.id not in self.chats:
                 self.chats.setdefault(chat.id, chat)
+                self.__save_active_chats(list(self.chats.keys()))
                 is_added = True
             if str(chat.id) not in posted:
                 posted.setdefault(chat.id, [])
@@ -313,6 +306,7 @@ class UserBot:
         if album:
             self.vk_album.remove_album(album["id"])
         self.chats.pop(chat.id)
+        self.__save_active_chats(list(self.chats.keys()))
 
         self.albums_ids.pop(str(chat.id))
         self.__save_albums_ids()
@@ -577,6 +571,11 @@ class UserBot:
         data["albums_ids"] = self.albums_ids
         self.__update_chats_data(data)
 
+    def __save_active_chats(self, ids: list[int]):
+        data = self.__get_chats_data()
+        data['active'] = ids
+        self.__update_chats_data(data)
+
     def __get_posted(self):
         data = self.__get_chats_data()
         saved_posted = data["posted"].items()
@@ -590,7 +589,7 @@ class UserBot:
         albums_ids = {chat_id: value for chat_id, value in saved_albums_ids}
         data["albums_ids"] = albums_ids
         return albums_ids
-
+    
     def __get_handlers_funcs(self):
         return {
             "help": self.__help_handler,
@@ -601,4 +600,3 @@ class UserBot:
             "add": self.__add_handler,
             "rem": self.__rem_handler,
         }
-        
