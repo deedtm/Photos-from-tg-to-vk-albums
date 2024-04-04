@@ -30,13 +30,13 @@ def format_usernames_list(usernames: list[str]):
 def format_interval(seconds: int):
     formatted = datetime(1, 1, 1, 0, 0, 0, 0) + timedelta(seconds=seconds)
     if formatted.hour != 0:
-        format = "%#H ч. %#M мин." if formatted.minute != 0 else "%#H ч."
-        return formatted.strftime(format)
+        format = "%H ч. %M мин." if formatted.minute != 0 else "%H ч."
+        return formatted.strftime(format).lstrip('0')
     else:
         if formatted.minute != 0:
-            return formatted.strftime("%#M мин.")
+            return formatted.strftime("%M мин.").lstrip('0')
         else:
-            return formatted.strftime("%#S сек.")
+            return formatted.strftime("%S сек.").lstrip('0')
 
 
 def get_now():

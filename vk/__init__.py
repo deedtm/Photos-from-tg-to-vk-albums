@@ -6,7 +6,7 @@ import logging
 import telegram.utils as utils
 # from io import BytesIO
 # from PIL import Image
-from vk.errors import AccessDenied
+from vk.errors import AccessDenied, OutOfTries
 # from memory_profiler import profile
 
 # if 'memory_logs.txt' not in os.listdir():
@@ -31,22 +31,8 @@ class VkAlbum:
 
     def remove_album(self, album_id: int):
         return self.__call_vk_method(self.vk.photos.deleteAlbum, album_id=album_id)
-
-    # @profile(stream=memory_logs)
-    # def add_photo(self, album_id: int, photo: str, caption: str):
-    #     memory_logs.write(f'\n{utils.get_now()}\n')
-    #     # with Image.open(photo) as image:
-    #     #     image.save(photo, format="jpeg")
-    #     # photo.seek(0)
-
-    #     return self.__upload_photo(album_id, photo, caption)
-        # return self.__call_vk_method(
-        #     self.upload.photo, album_id=album_id, photos=photo
-        # )
-
-    # @profile(stream=memory_logs)
+    
     def __upload_photo(self, album_id: int, path_to_photo: str, caption: str):
-        # memory_logs.write(f'\n{utils.get_now()}\n')
         upload_url = self.vk.photos.getUploadServer(album_id=album_id)["upload_url"]
         with open(path_to_photo, 'rb') as file:
             files = {"file1": file}
@@ -60,21 +46,24 @@ class VkAlbum:
             hash=data["hash"],
             caption=caption[:2048],
         )
-        del path_to_photo
-        del data
-        del upload_url
     
-    # @profile(stream=memory_logs)
-    def __upload_photo_wrapper(self, album_id: int, path_to_photo: str, caption: str):
-        # memory_logs.write(f'\n{utils.get_now()}\n')
+    def __upload_photo_wrapper(self, album_id: int, path_to_photo: str, caption: str, trying: int = 0):
         try:
             self.__upload_photo(album_id, path_to_photo, caption)
         except requests.exceptions.JSONDecodeError as err:
+            if trying >= 5:
+                raise OutOfTries('uploading photos')
+            
             logging.error(msg=f"Failed to decode json. Retrying in {self.retry_seconds // 10} seconds...")
             time.sleep(self.retry_seconds / 10)
+            
+            trying += 1
             self.__upload_photo_wrapper(album_id, path_to_photo, caption)
             
         except vk_api.exceptions.ApiError as err:
+            if trying >= 5:
+                raise OutOfTries('uploading photos')
+
             err_text = err.__str__()
             if '[100]' in err_text and 'photos_list is invalid' in err_text:
                 logging.error(
@@ -87,29 +76,32 @@ class VkAlbum:
             else:
                 return self.__api_error_handler(err, self.__upload_photo, 1, album_id=album_id, path_to_photo=path_to_photo, caption=caption)
                 
-            self.__upload_photo_wrapper(album_id, path_to_photo, caption)
+            trying += 1
+            self.__upload_photo_wrapper(album_id, path_to_photo, caption, trying)
 
         except BaseException as err:
+            if trying >= 5:
+                raise OutOfTries('uploading photos')
+            
             logging.error(msg=f'{err.__class__.__name__}:{err}. Retrying in {self.retry_seconds} seconds...')
             time.sleep(self.retry_seconds)
+            
+            trying += 1
             self.__upload_photo_wrapper(album_id, path_to_photo, caption)
+            
 
-    # @profile(stream=memory_logs)
     def add_photos(self, album_id: int, photos_data: list[tuple[str, str]]):
-        # memory_logs.write(f'\n{utils.get_now()}\n')
         photos_amount = len(photos_data)
         logging.info(msg=f"Uploading {photos_amount} photos to {album_id}...")
         i = 0
         for path, caption in photos_data:
             try:
                 self.__upload_photo_wrapper(album_id, path, caption)            
-            except RecursionError:
-                logging.info(msg=f"Failed to upload photo {path} to {album_id}. Skipping")
+            except OutOfTries as err:
+                logging.info(msg=err.__str__())
             time.sleep(1.5)
             i += 1
             logging.info(f"Uploaded {i}/{photos_amount}")
-        del i
-        del photos_amount
 
     def get_albums(self):
         return self.__call_vk_method(
