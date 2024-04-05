@@ -2,22 +2,13 @@ import time
 import vk_api
 import requests
 import logging
-# import os
-import telegram.utils as utils
-# from io import BytesIO
-# from PIL import Image
 from vk.errors import AccessDenied, OutOfTries
-# from memory_profiler import profile
-
-# if 'memory_logs.txt' not in os.listdir():
-#     with open("memory_logs.txt", 'w'): pass
-# memory_logs = open("memory_logs.txt", 'a')
 
 class VkAlbum:
-    def __init__(self, token: str, retry_seconds: int, anti_flood_tries: int):
+    def __init__(self, token: str, retry_seconds: int, anti_flood_tries: int, anti_flood_retry_hours: int = 12):
         self.retry_seconds = retry_seconds
         self.anti_flood_tries = anti_flood_tries
-        self.anti_flood_retry_hours = 12
+        self.anti_flood_retry_hours = anti_flood_retry_hours
         
         self.session = vk_api.VkApi(token=token)
         self.vk = self.session.get_api()
