@@ -278,9 +278,9 @@ class UserBot:
                 self.__save_posted(posted)
                 is_added = True
 
-            album = self.vk_album.get_album_by_title(chat.title)
+            album = await self.vk_album.get_album_by_title(chat.title)
             if album is None:
-                album = self.vk_album.create_album(chat.title)
+                album = await self.vk_album.create_album(chat.title)
                 logging.info(f"Created new album: {chat.title}")
             if str(chat.id) in self.albums_ids:
                 self.albums_ids[str(chat.id)] = album["id"]
@@ -302,9 +302,9 @@ class UserBot:
 
     async def __remove_chat(self, chat_id: int | str):
         chat = await self.app.get_chat(chat_id)
-        album = self.vk_album.get_album_by_title(chat.title)
+        album = await self.vk_album.get_album_by_title(chat.title)
         if album:
-            self.vk_album.remove_album(album["id"])
+            await self.vk_album.remove_album(album["id"])
         self.chats.pop(chat.id)
         self.__save_active_chats(list(self.chats.keys()))
 
@@ -315,7 +315,6 @@ class UserBot:
         posted.pop(str(chat.id))
         self.__save_posted(posted)
 
-    # @profile(stream=memory_logs)
     async def __start_reposting(self):
         logging.info(msg=f"Reposting was started")
 
@@ -359,7 +358,7 @@ class UserBot:
                 continue
             messages = await self.__refill_messages(messages)
             photos_data = await self.__get_photos_data(messages)
-            self.vk_album.add_photos(album_id, photos_data)
+            await self.vk_album.add_photos(album_id, photos_data)
             photos_data.clear()
             del photos_data
             logging.info(f"Uploaded {chat_id}")
