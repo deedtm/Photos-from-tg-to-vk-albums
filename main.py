@@ -15,10 +15,9 @@ PASSWORD = config.get("telegram", "password")
 
 VK_TOKEN = config.get("vk", "token")
 RETRY_SECONDS = int(config.get("vk", "retry_seconds"))
-ANTIFLOOD_TRIES = int(config.get("vk", "antiflood-control_tries"))
 
 def main():
-    vk_album = VkAlbum(VK_TOKEN, RETRY_SECONDS, ANTIFLOOD_TRIES)
+    vk_album = VkAlbum(VK_TOKEN, RETRY_SECONDS)
     ub = UserBot(API_ID, API_HASH, SESSION_NAME, INTERVAL, PHONE_NUMBER, PASSWORD, vk_album)
     logging.info('Disabling pyrogram logging...')
     for name, logger in logging.root.manager.loggerDict.items():
