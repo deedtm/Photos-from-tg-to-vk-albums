@@ -17,6 +17,7 @@ class VkAlbum:
     def __init__(self, token: str, retry_seconds: int, anti_flood_tries: int):
         self.retry_seconds = retry_seconds
         self.anti_flood_tries = anti_flood_tries
+        self.anti_flood_retry_hours = 12
         
         self.session = vk_api.VkApi(token=token)
         self.vk = self.session.get_api()
@@ -159,10 +160,10 @@ class VkAlbum:
         if "[9]" in err_text:
             self.__anti_flood_control()
             logging.info(
-                msg=f"Sleeping for {retry_seconds:0.1f} seconds and retrying..."
+                msg=f"Sleeping for {self.anti_flood_retry_hours:0.1f} hours and retrying..."
             )
-            time.sleep(retry_seconds)
-            self.__call_vk_method(func, sleep_multiplier, **kwargs)
+            time.sleep(self.anti_flood_retry_hours * 3600)
+            self.__call_vk_method(func, 1, **kwargs)
         elif "[5]" in err_text:
             logging.error(
                 msg="VK token was expired. Please update it in `config.ini` file"
