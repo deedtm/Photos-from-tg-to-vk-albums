@@ -32,7 +32,7 @@ class UserBot:
     ):
         if "chats_data.json" not in os.listdir("telegram"):
             self.__update_chats_data({"active": [], "posted": {}, "albums_ids": {}})
-        self.chats_ids = self.__get_chats_data()['active']
+        self.chats_ids = self.__get_chats_data()["active"]
         self.chats = {chat_id: None for chat_id in self.chats_ids}
         self.albums_ids = self.__get_albums_ids()
         self.handlers_funcs = self.__get_handlers_funcs()
@@ -62,7 +62,7 @@ class UserBot:
             handler = self.__get_handler_by_text(msg.text)
             if not handler:
                 return
-            kwargs = await handler(client, msg)  # handler call
+            kwargs = await handler(client, msg)  # calling the handler
 
         except flood_420.FloodWait as err:
             seconds = err.__str__().split("of ", 1)[-1].split()[0]
@@ -138,19 +138,30 @@ class UserBot:
         return {"text": text}
 
     async def __interval_handler(self, client: Client, msg: Message):
-        _, arg = tuple(msg.text.split(" ", 1))
-        prev = utils.format_interval(self.interval)
-        self.interval = int(arg) * 60
-        cur = utils.format_interval(self.interval)
+        try:
+            _, arg = tuple(msg.text.split(" ", 1))
+        except ValueError:
+            return {"text": bot_errors["missing_arguments"].format(command=msg.text)}
+        
+        try:
+            prev = utils.format_interval(self.interval)
+            self.interval = int(arg) * 60
+            cur = utils.format_interval(self.interval)
 
-        text = bot_texts["interval"].format(prev=prev, cur=cur)
+            text = bot_texts["interval"].format(prev=prev, cur=cur)
+        except ValueError:
+            text = bot_errors["invalid_argument"].format(arg=arg)
+
         return {"text": text}
 
     async def __add_handler(self, client: Client, msg: Message):
         if None in self.chats.values():
             self.chats = await self.__get_chats()
 
-        _, arg = tuple(msg.text.split(" ", 1))
+        try:
+            _, arg = tuple(msg.text.split(" ", 1))
+        except ValueError:
+            return {"text": bot_errors["missing_arguments"].format(command=msg.text)}
 
         if not arg.startswith("@"):
             chat_id = await self.__get_chat_id_by_title(arg)
@@ -169,7 +180,7 @@ class UserBot:
 
         except (bad_request_400.UsernameInvalid, bad_request_400.UsernameNotOccupied):
             text = bot_errors["invalid_username"].format(username=chat_id)
-        except UnboundLocalError:
+        except (UnboundLocalError, AttributeError):
             text = bot_errors["invalid_argument"].format(arg=", ".join(arg.split()))
 
         return {"text": text}
@@ -206,7 +217,11 @@ class UserBot:
         return text
 
     async def __rem_handler(self, client: Client, msg: Message):
-        _, arg = tuple(msg.text.split(" ", 1))
+        try:
+            _, arg = tuple(msg.text.split(" ", 1))
+        except ValueError:
+            return {"text": bot_errors["missing_arguments"].format(command=msg.text)}
+        
         if not arg.startswith("@"):
             chat_id = await self.__get_chat_id_by_title(arg)
         else:
@@ -572,7 +587,7 @@ class UserBot:
 
     def __save_active_chats(self, ids: list[int]):
         data = self.__get_chats_data()
-        data['active'] = ids
+        data["active"] = ids
         self.__update_chats_data(data)
 
     def __get_posted(self):
@@ -588,7 +603,7 @@ class UserBot:
         albums_ids = {chat_id: value for chat_id, value in saved_albums_ids}
         data["albums_ids"] = albums_ids
         return albums_ids
-    
+
     def __get_handlers_funcs(self):
         return {
             "help": self.__help_handler,
