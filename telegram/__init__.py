@@ -346,7 +346,7 @@ class UserBot:
         posted = self.__get_posted()
         for chat_id in self.chats:
             chat_id = str(chat_id)
-            logging.info(f"Uploading {chat_id}...")
+            logging.debug(f"Uploading {chat_id}...")
             if chat_id not in posted:
                 posted.setdefault(chat_id, [])
 
@@ -373,7 +373,7 @@ class UserBot:
                 continue
             messages = await self.__refill_messages(messages)
             photos_data = await self.__get_photos_data(messages)
-            await self.vk_album.add_photos(album_id, photos_data)
+            await self.vk_album.upload_photos_pack(album_id, photos_data)
             photos_data.clear()
             del photos_data
             logging.info(f"Uploaded {chat_id}")
@@ -434,7 +434,7 @@ class UserBot:
             caption = ""
         else:
             msg = f"Found caption for {mes.id}"
-        logging.info(msg=msg)
+        logging.debug(msg=msg)
         del msg
         return caption
 
