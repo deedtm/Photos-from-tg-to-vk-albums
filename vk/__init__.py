@@ -137,7 +137,7 @@ class VkAlbum:
         self, album_id: int, photos_data: list[tuple[str, str]], trying: int = 0
     ):        
         left = photos_data
-        while left is not None or trying < self.PACK_UPLOAD_MT:
+        while trying < self.PACK_UPLOAD_MT:
             left = await self.__upload_pack(album_id, left)
             if left is None:
                 break
