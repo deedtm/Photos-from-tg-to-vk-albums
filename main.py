@@ -35,7 +35,7 @@ async def main():
 if __name__ == "__main__":
     is_debug = sys.argv[1:] and sys.argv[1] == "-d"
     logging_lvl = logging.DEBUG if is_debug else logging.INFO
-    logging.basicConfig(level=logging)
+    logging.basicConfig(level=logging_lvl)
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
