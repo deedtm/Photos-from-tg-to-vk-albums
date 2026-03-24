@@ -122,7 +122,7 @@ class UserBot:
 
         self.is_started = True
         text = bot_texts["start"]
-        func_data = {"func": self.__start_reposting, "is_async": True, "kwargs": {}}
+        func_data = {"func": self._start_reposting, "is_async": True, "kwargs": {}}
 
         return {"text": text, "func_data": func_data}
 
@@ -330,7 +330,7 @@ class UserBot:
         posted.pop(str(chat.id))
         self.__save_posted(posted)
 
-    async def __start_reposting(self):
+    async def _start_reposting(self):
         logging.info(msg=f"Reposting was started")
 
         while self.is_started:
@@ -535,6 +535,7 @@ class UserBot:
                 bad_request_400.ChannelInvalid,
                 bad_request_400.ChatInvalid,
                 bad_request_400.ChatIdInvalid,
+                bad_request_400.PeerIdInvalid,
             ):
                 logging.warning(msg=f"User did not subscribed on {chat_id}")
         return chats
